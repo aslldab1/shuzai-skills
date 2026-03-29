@@ -16,26 +16,23 @@ Step 2-P2（owner/claude）或 Step 3-P2（owner/codex）检测到"待确认"时
 【OPENCLAW】【进度确认】
 Issue #{N}：{Issue标题}
 
-距上次活动已超过 20 分钟，未检测到完成信号，请回复当前状态：
+距上次活动已超过 20 分钟，未检测到完成信号。
+请描述当前进度，并在 Issue 中回复。
 
-A. 已完成 → 请在此 Issue 补写完成信号：
-   【CLAUDE】【完成】PR #{pr_number} related to #{N}
-   （纯文档/设计任务无 PR 时：【CLAUDE】【完成】无 PR，产出已在 Issue 评论中）
-
-B. 仍在进行中 → 回复预计完成时间或当前阻塞点
-
-C. 遇到无法解决的阻塞 → 描述问题，openclaw 将通知人工介入
+如已完成，请补写完成信号：
+【CLAUDE】【完成】PR #{pr_number} related to #{N}
+（纯文档/设计任务无 PR 时：【CLAUDE】【完成】无 PR，产出已在 Issue 评论中）
 ```
 
 ## openclaw 后续动作
 
-下轮 Step 1 读取 Issue 最新评论，按回复内容路由：
+下轮 Step 1 读取 Issue 最新评论，LLM 综合判断 worker 回复的含义并路由：
 
-| worker 回复 | 动作 |
-|------------|------|
-| 含 `【CLAUDE】【完成】` 或 `【CODEX】【完成】` | 正常完成信号处理，推进状态 |
-| 回复"仍在进行中" / 给出进度说明 | 更新最后活动时间戳，继续等待 |
-| 回复遇到阻塞 | issue label 加 `owner/shuzai`，Feishu 通知 HUMAN，留 【OPENCLAW】 评论 |
+| 判断结论 | 动作 |
+|---------|------|
+| 含完成信号 `【CLAUDE/CODEX】【完成】` | 正常推进状态 |
+| 回复表示仍在进行、给出进度说明 | 更新最后活动时间戳，继续等待 |
+| 回复表示遇到阻塞、无法继续 | label 加 `owner/shuzai`，Feishu 通知 HUMAN |
 | 超过 1 小时无任何回复 | Feishu 通知 HUMAN（worker 可能彻底卡死） |
 
 ## 注意
