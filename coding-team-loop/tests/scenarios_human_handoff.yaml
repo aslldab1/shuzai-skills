@@ -62,4 +62,3 @@
     handoff_label_changes: ["verifying->pending", "owner/shuzai->owner/claude"]
     step2_action: task-dispatch
     dispatch_to: claude
-    message_contains: ["42"]

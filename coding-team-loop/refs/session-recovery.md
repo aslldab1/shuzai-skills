@@ -1,27 +1,10 @@
 # Session 恢复
 
-## Stale In-Progress 自愈
+## Stale In-Progress 处理
 
-Step 1 中检测：Issue label=`in-progress` + 对应 worker 空闲 + 无关联 open PR。
+**已由 refs/progress-confirm.md 接管。**
 
-```bash
-# 检查是否有以 issue-{N} 命名的分支
-git ls-remote --heads origin | grep "issue-{N}"
-# 或通过 GitHub API
-gh api repos/{owner}/{repo}/git/refs/heads --jq '.[].ref' | grep "issue-{N}"
-```
-
-**有分支：**
-- label 保持 `in-progress`
-- 下轮派发"恢复执行"消息（见 refs/task-dispatch.md 中断恢复部分）
-
-**无分支：**
-- Issue label 重置为 `pending`（保留 owner label）
-- 留 【OPENCLAW】 评论：
-  ```
-  【OPENCLAW】检测到执行中断（worker 空闲，无 PR 也无对应分支）。
-  已重置为 pending，下轮重新派发。检测时间：{datetime}
-  ```
+Step 1 检测 `in-progress` + 20 分钟无活动 → 标记为"待确认"，Step 2/3 向 worker 发送进度确认消息，由 worker 回复决定后续动作。不再自动 reset label。
 
 ## Codex 会话缺失
 
