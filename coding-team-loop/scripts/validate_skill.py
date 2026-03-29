@@ -241,11 +241,20 @@ def evaluate_scenario(skill_content: str, scenario: dict,
 def main():
     parser = argparse.ArgumentParser(description="验证 coding-team-loop SKILL.md")
     parser.add_argument("--scenario", help="只运行指定场景 ID（如 S01）")
+    parser.add_argument("--file",     help="只运行指定场景文件（如 scenarios_routing.yaml）")
     parser.add_argument("--verbose",  action="store_true", help="显示 OpenClaw 原始回复")
     args = parser.parse_args()
 
     skill_content = load_skill_with_refs()
-    scenarios     = load_all_scenarios()
+
+    if args.file:
+        target = SCENARIOS_DIR / args.file
+        if not target.exists():
+            print(f"{RED}找不到文件 {args.file}{RESET}")
+            sys.exit(1)
+        scenarios = yaml.safe_load(target.read_text(encoding="utf-8")) or []
+    else:
+        scenarios = load_all_scenarios()
 
     if args.scenario:
         scenarios = [s for s in scenarios if s.get("id") == args.scenario]
