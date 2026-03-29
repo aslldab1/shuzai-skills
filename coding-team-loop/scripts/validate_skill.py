@@ -88,8 +88,9 @@ PROMPT_TEMPLATE = """\
 只输出一个 JSON，不要其他内容，不要调用任何工具：
 {{
   "step1_label_changes": ["Step 1 中应自动触发的 label 变更，如 in-progress->needs-review，无则为空数组"],
-  "step2_action": "review-and-merge / deliverable-verify / task-dispatch / route-owner / none",
-  "step3_action": "fix-dispatch / task-dispatch / none",
+  "handoff_label_changes": ["owner/shuzai 处理阶段（Step1 完成后、Step2 之前）触发的 label 变更，如 verifying->pending，无则为空数组"],
+  "step2_action": "review-and-merge / deliverable-verify / progress-confirm / task-dispatch / route-owner / none",
+  "step3_action": "fix-dispatch / progress-confirm / task-dispatch / none",
   "dispatch_to": "claude / codex / both / none",
   "message_contains": ["派发消息中必须包含的关键词，无则为空数组"],
   "stale_recovery": "resume / reset / none （stale in-progress 自愈动作）",
@@ -227,8 +228,9 @@ def evaluate_scenario(skill_content: str, scenario: dict,
     passed &= check_field("step3_action",      result.get("step3_action"),      expect.get("step3_action"),      verbose)
     passed &= check_field("dispatch_to",       result.get("dispatch_to"),       expect.get("dispatch_to"),       verbose)
     passed &= check_field("message_contains",  result.get("message_contains"),  expect.get("message_contains"),  verbose)
-    passed &= check_field("step1_label_changes", result.get("step1_label_changes"), expect.get("step1_label_changes"), verbose)
-    passed &= check_field("stale_recovery",    result.get("stale_recovery"),    expect.get("stale_recovery"),    verbose)
+    passed &= check_field("step1_label_changes",   result.get("step1_label_changes"),   expect.get("step1_label_changes"),   verbose)
+    passed &= check_field("handoff_label_changes", result.get("handoff_label_changes"), expect.get("handoff_label_changes"), verbose)
+    passed &= check_field("stale_recovery",        result.get("stale_recovery"),        expect.get("stale_recovery"),        verbose)
 
     if passed:
         ok("PASS")

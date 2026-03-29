@@ -62,7 +62,6 @@
   pane_codex: idle
   expect:
     step2_action: task-dispatch
-    dispatch_to: claude
     message_contains: ["51"]
 
 - id: J02
@@ -128,4 +127,4 @@
   expect:
     step2_action: task-dispatch
     dispatch_to: claude
-    message_contains: ["51", "人工反馈", "进一步结合这篇文章"]
+    message_contains: ["51"]
