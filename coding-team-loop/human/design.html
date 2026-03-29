@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coding Team Loop — 设计文档</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f5f6f8;
+      color: #1a1d23;
+      line-height: 1.7;
+      padding: 40px 20px 80px;
+    }
+
+    .page-header {
+      max-width: 860px;
+      margin: 0 auto 48px;
+      text-align: center;
+    }
+    .page-header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #0f1117;
+    }
+    .page-header .subtitle {
+      margin-top: 10px;
+      font-size: 1rem;
+      color: #6b7280;
+    }
+    .page-header .badge {
+      display: inline-block;
+      margin-top: 14px;
+      padding: 4px 12px;
+      background: #eff6ff;
+      color: #3b82f6;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 500;
+    }
+
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.05);
+      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 18px 24px 16px;
+      border-bottom: 1px solid #f0f1f3;
+    }
+    .card-header .section-num {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: #3b82f6;
+      color: #fff;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .card-header h2 {
+      font-size: 1.05rem;
+      font-weight: 650;
+      color: #0f1117;
+    }
+
+    .card-body {
+      padding: 20px 24px 24px;
+    }
+
+    /* Principles */
+    .principle-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .principle-item {
+      background: #f8f9fb;
+      border-radius: 10px;
+      padding: 14px 16px;
+      border-left: 3px solid #3b82f6;
+    }
+    .principle-item.highlight {
+      border-left: 3px solid #f59e0b;
+      background: #fffbeb;
+    }
+    .principle-item .p-title {
+      font-weight: 650;
+      font-size: 0.9rem;
+      color: #1d4ed8;
+      margin-bottom: 6px;
+    }
+    .principle-item.highlight .p-title {
+      color: #92400e;
+    }
+    .principle-item .p-desc {
+      font-size: 0.85rem;
+      color: #4b5563;
+      line-height: 1.55;
+    }
+
+    /* Label table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    th {
+      background: #f3f4f6;
+      text-align: left;
+      padding: 9px 12px;
+      font-weight: 600;
+      color: #374151;
+      border-bottom: 2px solid #e5e7eb;
+    }
+    td {
+      padding: 9px 12px;
+      border-bottom: 1px solid #f0f1f3;
+      color: #374151;
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafbfc; }
+
+    .label-badge {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 12px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      font-family: "SF Mono", "Fira Code", monospace;
+      white-space: nowrap;
+    }
+    .lbl-pending    { background: #fef3c7; color: #92400e; }
+    .lbl-progress   { background: #dbeafe; color: #1e40af; }
+    .lbl-review     { background: #ede9fe; color: #5b21b6; }
+    .lbl-changes    { background: #fee2e2; color: #991b1b; }
+    .lbl-verifying  { background: #d1fae5; color: #065f46; }
+    .lbl-verified   { background: #dcfce7; color: #14532d; }
+    .lbl-epic       { background: #f3e8ff; color: #6b21a8; }
+    .lbl-owner      { background: #e0f2fe; color: #0369a1; }
+
+    /* Lifecycle flow */
+    .lifecycle-flow {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 16px 0 10px;
+    }
+    .flow-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .flow-state .state-box {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      font-family: "SF Mono", "Fira Code", monospace;
+      white-space: nowrap;
+    }
+    .flow-state .state-label {
+      font-size: 0.72rem;
+      color: #9ca3af;
+      text-align: center;
+      max-width: 90px;
+    }
+    .flow-arrow {
+      font-size: 1.1rem;
+      color: #9ca3af;
+      padding-bottom: 18px;
+    }
+
+    /* Steps */
+    .step-block {
+      margin-bottom: 18px;
+    }
+    .step-block:last-child { margin-bottom: 0; }
+    .step-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      background: #1e40af;
+      color: #fff;
+      border-radius: 50%;
+      font-size: 0.75rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .step-title h3 {
+      font-size: 0.95rem;
+      font-weight: 650;
+      color: #1d4ed8;
+    }
+    .priority-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-left: 32px;
+    }
+    .priority-item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 8px 12px;
+      background: #f8f9fb;
+      border-radius: 8px;
+      font-size: 0.87rem;
+    }
+    .priority-item .p-tag {
+      flex-shrink: 0;
+      padding: 1px 7px;
+      background: #dbeafe;
+      color: #1e40af;
+      border-radius: 5px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      font-family: monospace;
+    }
+    .priority-item .p-tag.warn { background: #fee2e2; color: #991b1b; }
+    .priority-item .p-content { color: #374151; }
+    .priority-item .p-content .ref {
+      display: inline-block;
+      margin-top: 2px;
+      font-size: 0.77rem;
+      color: #6b7280;
+      font-family: "SF Mono", "Fira Code", monospace;
+    }
+
+    /* Busy detection */
+    .detect-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .detect-card {
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .detect-card.busy { background: #fff7ed; border: 1px solid #fed7aa; }
+    .detect-card.idle { background: #f0fdf4; border: 1px solid #bbf7d0; }
+    .detect-card .dc-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .detect-card.busy .dc-title { color: #c2410c; }
+    .detect-card.idle .dc-title { color: #15803d; }
+    .detect-card ul { padding-left: 16px; }
+    .detect-card li { font-size: 0.83rem; color: #374151; margin-bottom: 3px; }
+    code.inline {
+      background: #f3f4f6;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 0.83em;
+      font-family: "SF Mono", "Fira Code", monospace;
+      color: #1e40af;
+    }
+
+    /* Memory */
+    .memory-yaml {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      padding: 16px 20px;
+      border-radius: 10px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 0.82rem;
+      line-height: 1.75;
+      overflow-x: auto;
+    }
+    .memory-yaml .key { color: #89b4fa; }
+    .memory-yaml .val { color: #a6e3a1; }
+    .memory-yaml .comment { color: #6c7086; }
+    .memory-yaml .str { color: #f9e2af; }
+
+    /* Feishu */
+    .feishu-preview {
+      background: #f0f4ff;
+      border: 1px solid #c7d2fe;
+      border-radius: 10px;
+      padding: 16px 20px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 0.82rem;
+      line-height: 1.9;
+      color: #1e1b4b;
+      white-space: pre;
+      overflow-x: auto;
+    }
+
+    /* File tree */
+    .file-tree {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      padding: 16px 20px;
+      border-radius: 10px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 0.85rem;
+      line-height: 1.9;
+      overflow-x: auto;
+    }
+    .file-tree .dir  { color: #89b4fa; }
+    .file-tree .file { color: #a6e3a1; }
+    .file-tree .note { color: #6c7086; }
+
+    /* Comparison */
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .compare-col { border-radius: 10px; padding: 16px 18px; }
+    .compare-col.old { background: #fef2f2; border: 1px solid #fecaca; }
+    .compare-col.new { background: #f0fdf4; border: 1px solid #bbf7d0; }
+    .compare-col h4 {
+      font-size: 0.88rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .compare-col.old h4 { color: #991b1b; }
+    .compare-col.new h4 { color: #15803d; }
+    .compare-col ul { padding-left: 16px; }
+    .compare-col li { font-size: 0.84rem; color: #374151; margin-bottom: 5px; }
+
+    /* Issue comment example */
+    .comment-example {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 14px;
+    }
+    .comment-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 14px;
+      background: #f3f4f6;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 0.83rem;
+      color: #6b7280;
+    }
+    .comment-avatar {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    .comment-avatar.system { background: #6366f1; }
+    .comment-avatar.claude { background: #0ea5e9; }
+    .comment-avatar.human  { background: #10b981; }
+    .comment-body {
+      padding: 12px 14px;
+      font-size: 0.84rem;
+      color: #374151;
+      line-height: 1.65;
+    }
+    .comment-prefix {
+      font-weight: 700;
+    }
+    .comment-prefix.sys { color: #6366f1; }
+    .comment-prefix.claude { color: #0ea5e9; }
+
+    /* Dispatch order */
+    .dispatch-order {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-top: 4px;
+    }
+    .dispatch-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 12px 16px;
+      background: #f8f9fb;
+      border-radius: 0;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 0.87rem;
+    }
+    .dispatch-step:first-child { border-radius: 10px 10px 0 0; }
+    .dispatch-step:last-child  { border-radius: 0 0 10px 10px; border-bottom: none; }
+    .dispatch-step .ds-num {
+      flex-shrink: 0;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: #fff;
+      margin-top: 1px;
+    }
+    .dispatch-step:nth-child(1) .ds-num { background: #f59e0b; }
+    .dispatch-step:nth-child(2) .ds-num { background: #3b82f6; }
+    .dispatch-step:nth-child(3) .ds-num { background: #8b5cf6; }
+    .dispatch-step .ds-content { flex: 1; }
+    .dispatch-step .ds-title { font-weight: 650; color: #1a1d23; margin-bottom: 3px; }
+    .dispatch-step .ds-note { font-size: 0.82rem; color: #6b7280; }
+    .dispatch-step .ds-why {
+      margin-top: 6px;
+      font-size: 0.81rem;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 6px;
+      padding: 5px 10px;
+      color: #92400e;
+    }
+
+    /* Case study */
+    .case-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .case-event {
+      display: flex;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f1f3;
+      font-size: 0.85rem;
+    }
+    .case-event:last-child { border-bottom: none; }
+    .case-time {
+      flex-shrink: 0;
+      width: 80px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 0.78rem;
+      color: #9ca3af;
+      padding-top: 2px;
+    }
+    .case-tag {
+      flex-shrink: 0;
+      padding: 1px 7px;
+      border-radius: 5px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      height: fit-content;
+      margin-top: 2px;
+    }
+    .case-tag.sys    { background: #ede9fe; color: #5b21b6; }
+    .case-tag.claude { background: #dbeafe; color: #1e40af; }
+    .case-tag.human  { background: #d1fae5; color: #065f46; }
+    .case-tag.bug    { background: #fee2e2; color: #991b1b; }
+    .case-tag.fix    { background: #fef3c7; color: #92400e; }
+    .case-body { flex: 1; color: #374151; line-height: 1.6; }
+    .case-body strong { color: #111827; }
+
+    .case-decision {
+      margin-top: 16px;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 10px;
+      padding: 14px 18px;
+    }
+    .case-decision .cd-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #92400e;
+      margin-bottom: 10px;
+    }
+    .case-decision .cd-inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .case-decision .cd-input-box {
+      background: #fff;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.82rem;
+    }
+    .case-decision .cd-input-box .label {
+      font-weight: 650;
+      font-size: 0.78rem;
+      color: #6b7280;
+      margin-bottom: 6px;
+    }
+    .case-decision .cd-input-box .content {
+      color: #374151;
+      line-height: 1.55;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 0.79rem;
+    }
+    .case-decision .cd-result {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.85rem;
+      color: #065f46;
+    }
+    .case-decision .cd-result strong { color: #14532d; }
+
+    @media (max-width: 620px) {
+      .compare-grid, .detect-grid { grid-template-columns: 1fr; }
+      .lifecycle-flow { gap: 4px; }
+      .case-decision .cd-inputs { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Coding Team Loop</h1>
+  <div class="subtitle">openclaw 协调 Claude + Codex 双 Worker 开发循环 — 设计文档</div>
+  <div class="badge">v2 · 2026-03-29</div>
+</div>
+
+<div class="container">
+
+  <!-- 一、设计原则 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="section-num">一</div>
+      <h2>设计原则</h2>
+    </div>
+    <div class="card-body">
+      <div class="principle-grid">
+        <div class="principle-item">
+          <div class="p-title">任务是核心</div>
+          <div class="p-desc">多任务并行于不同阶段，而非单一状态机串行推进。</div>
+        </div>
+        <div class="principle-item">
+          <div class="p-title">双 Worker 独立调度</div>
+          <div class="p-desc">Claude 和 Codex 互不阻塞，同一轮可同时向两侧派发。</div>
+        </div>
+        <div class="principle-item">
+          <div class="p-title">GitHub Issues 是唯一任务数据库</div>
+          <div class="p-desc">HUMAN 创建 Issue，openclaw 维护 label，AI 不自行发明任务。</div>
+        </div>
+        <div class="principle-item">
+          <div class="p-title">交付有明确定义</div>
+          <div class="p-desc">Claude 验证主干使用流程通过才算已交付，PR 合并不等于交付。</div>
+        </div>
+        <div class="principle-item">
+          <div class="p-title">评论前缀区分身份</div>
+          <div class="p-desc">同一 git 账号，通过 【OPENCLAW】/【CLAUDE】 前缀识别来源。Claude 所有 Issue 评论必须以 【CLAUDE】 开头。</div>
+        </div>
+        <div class="principle-item">
+          <div class="p-title">原文转发，禁止改写</div>
+          <div class="p-desc">Fix 派发时 review 意见必须完整逐字转发，防止信息失真。</div>
+        </div>
+        <div class="principle-item highlight">
+          <div class="p-title">完整信息驱动判断</div>
+          <div class="p-desc">每次派发前读取 Issue 完整评论历史 + worker pane 内容，交给 LLM 综合推断当前状态，不依赖单一脆弱信号。</div>
+        </div>
+        <div class="principle-item highlight">
+          <div class="p-title">派发评论是状态锚点</div>
+          <div class="p-desc">【OPENCLAW】派发评论是最可靠的历史记录，必须是派发动作的第一步，确保即使后续中断也能追溯。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 二、GitHub Issues 任务管理 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="section-num">二</div>
+      <h2>GitHub Issues 任务管理</h2>
+    </div>
+    <div class="card-body">
+      <table>
+        <thead>
+          <tr>
+            <th>Label</th>
+            <th>含义</th>
+            <th>维护方</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="label-badge lbl-pending">pending</span></td><td>待派发</td><td>openclaw / HUMAN</td></tr>
+          <tr><td><span class="label-badge lbl-progress">in-progress</span></td><td>已派发，执行中</td><td>openclaw</td></tr>
+          <tr><td><span class="label-badge lbl-review">needs-review</span></td><td>Codex PR 已提交，等待 Claude review</td><td>openclaw（自动推进）</td></tr>
+          <tr><td><span class="label-badge lbl-changes">changes-requested</span></td><td>Claude review 要求修改，等待 Codex 修复</td><td>openclaw</td></tr>
+          <tr><td><span class="label-badge lbl-verifying">verifying</span></td><td>PR 已合并，等待 Claude 验收主干流程</td><td>openclaw</td></tr>
+          <tr><td><span class="label-badge lbl-verified">verified</span></td><td>验收通过，等待 HUMAN 关闭</td><td>openclaw</td></tr>
+          <tr><td><span class="label-badge lbl-epic">epic</span></td><td>大需求拆解跟踪 Issue，不直接执行</td><td>Claude（路由时打）</td></tr>
+        </tbody>
+      </table>
+
+      <div style="margin-top: 16px;">
+        <table>
+          <thead>
+            <tr><th>Owner Label</th><th>含义</th><th>与状态 label 关系</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="label-badge lbl-owner">owner/claude</span></td><td>由 Claude 执行</td><td>并用，不互斥</td></tr>
+            <tr><td><span class="label-badge lbl-owner">owner/codex</span></td><td>由 Codex 执行</td><td>并用，不互斥</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Comment examples -->
+      <div style="margin-top: 20px;">
+        <div style="font-size: 0.9rem; font-weight: 650; color: #374151; margin-bottom: 10px;">Issue 评论示例</div>
+
+        <div class="comment-example">
+          <div class="comment-header">
+            <div class="comment-avatar system">OP</div>
+            openclaw-bot &nbsp;·&nbsp; 刚刚
+          </div>
+          <div class="comment-body">
+            <span class="comment-prefix sys">【OPENCLAW】</span> 已将此任务派发给 @claude，开始执行。<br>
+            label: in-progress · 派发时间：2026-03-29 10:15:00
+          </div>
+        </div>
+
+        <div class="comment-example" style="margin-top: 10px;">
+          <div class="comment-header">
+            <div class="comment-avatar claude">CL</div>
+            openclaw-bot &nbsp;·&nbsp; 11 分钟前
+          </div>
+          <div class="comment-body">
+            <span class="comment-prefix claude">【CLAUDE】</span> 方案概要：在 AuthService 中增加 JWT refresh token 轮换逻辑，新增 /auth/refresh 端点，token 有效期 7 天，刷新窗口最后 24h 内触发。详细技术方案见 <code class="inline">docs/tasks/issue-42-jwt-refresh.md</code>
+          </div>
+        </div>
+
+        <div class="comment-example" style="margin-top: 10px;">
+          <div class="comment-header">
+            <div class="comment-avatar system">OP</div>
+            openclaw-bot &nbsp;·&nbsp; 23 分钟前
+          </div>
+          <div class="comment-body">
+            <span class="comment-prefix sys">【OPENCLAW】</span> 检测到执行中断（worker 空闲，无 PR 也无对应分支）。<br>
+            已重置为 pending，下轮重新派发。检测时间：2026-03-29 09:58:42
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 三、任务生命周期 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="section-num">三</div>
+      <h2>任务生命周期</h2>
+    </div>
+    <div class="card-body">
+      <div class="lifecycle-flow">
+        <div class="flow-state">
+          <div class="state-box lbl-pending">pending</div>
+          <div class="state-label">HUMAN 创建</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-state">
+          <div class="state-box lbl-progress">in-progress</div>
+          <div class="state-label">派发给 worker</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-state">
+          <div class="state-box lbl-review">needs-review</div>
+          <div class="state-label">Codex 提 PR</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-state">
+          <div class="state-box lbl-verifying">verifying</div>
+          <div class="state-label">PR merge 后</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-state">
+          <div class="state-box lbl-verified">verified</div>
+          <div class="state-label">验收通过</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-state">
+          <div class="state-box" style="background:#dcfce7;color:#14532d;padding:6px 14px;border-radius:8px;font-size:0.82rem;font-weight:600;">closed</div>
+          <div class="state-label">HUMAN 关闭</div>
+        </div>
+      </div>
+
+      <div style="margin-top: 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <span style="font-size:0.83rem; color:#6b7280;">Review 反馈分支：</span>
+        <div class="flow-state">
+          <div class="state-box lbl-review">needs-review</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-state">
+          <div class="state-box lbl-changes">changes-requested</div>
+          <div class="state-label">Claude 不通过</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-state">
+          <div class="state-box lbl-review">needs-review</div>
+          <div class="state-label">Codex 修复推送</div>
+        </div>
+      </div>
+
+      <div style="margin-top: 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <span style="font-size:0.83rem; color:#6b7280;">中断自愈：</span>
+        <div class="flow-state">
+          <div class="state-box lbl-progress">in-progress</div>
+          <div class="state-label">worker 空闲+无PR</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div style="font-size:0.83rem;color:#374151;">有分支 → 恢复执行 &nbsp;|&nbsp; 无分支 →</div>
+        <div class="flow-state">
+          <div class="state-box lbl-pending">pending</div>
+          <div class="state-label">重新派发</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 四、文件结构设计 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="section-num">四</div>
+      <h2>文件结构设计</h2>
+    </div>
+    <div class="card-body">
+      <div class="file-tree">
+<span class="dir">coding-team-loop/</span>
+├── <span class="file">SKILL.md</span>                        <span class="note"># 主入口：全局约定 + 每轮执行逻辑 + memory</span>
+├── <span class="dir">scripts/</span>
+│   └── <span class="file">tmux_dispatch.sh</span>            <span class="note"># tmux 消息派发（含 ack 检测）</span>
+├── <span class="dir">refs/</span>
+│   ├── <span class="file">busy-detection.md</span>           <span class="note"># worker 忙碌判断规则</span>
+│   ├── <span class="file">review-and-merge.md</span>         <span class="note"># review 请求 + merge 后续动作</span>
+│   ├── <span class="file">deliverable-verify.md</span>       <span class="note"># 验收请求 + 问题拆 Issue</span>
+│   ├── <span class="file">task-dispatch.md</span>            <span class="note"># 开发任务派发：消息格式 + 状态判断 + 动作顺序</span>
+│   ├── <span class="file">fix-dispatch.md</span>             <span class="note"># fix 请求 + 原文转发规则</span>
+│   └── <span class="file">session-recovery.md</span>         <span class="note"># 会话缺失重建步骤</span>
+├── <span class="dir">evals/</span>
+│   ├── <span class="file">parse-run.py</span>                <span class="note"># 分析最近一次定时任务执行流程</span>
+│   └── <span class="file">review-execution-log.md</span>     <span class="note"># 手动分析步骤 + 常见问题模式</span>
+└── <span class="dir">human/</span>
+    └── <span class="file">design.html</span>                 <span class="note"># 本文档</span>
+      </div>
+      <div style="margin-top: 14px; font-size: 0.85rem; color: #6b7280; line-height: 1.65;">
+        SKILL.md 通过 <code class="inline">→ 参考：refs/xxx.md</code> 按需引用，保持主文档简洁。<br>
+        Memory 只存调度状态（dispatch 时间戳、防重复通知标记、run_lock），任务详情全在 GitHub Issues。
+      </div>
+    </div>
+  </div>
+
+  <!-- 五、每轮执行结构 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="section-num">五</div>
+      <h2>每轮执行结构（固定 3 步）</h2>
+    </div>
+    <div class="card-body">
+
+      <div class="step-block">
+        <div class="step-title">
+          <div class="step-num">1</div>
+          <h3>读取信号（只读）</h3>
+        </div>
+        <div class="priority-list">
+          <div class="priority-item">
+            <span class="p-tag">Issues</span>
+            <div class="p-content">
+              读取所有 open Issues 及 label；检测 stale in-progress（worker 空闲 + 无关联 PR）<br>
+              <span class="ref">对于每个 pending + owner/claude/codex 的 Issue，额外读取最近 10 条评论（含时间戳），供 Step 2/3 判断使用</span>
+            </div>
+          </div>
+          <div class="priority-item">
+            <span class="p-tag">PRs</span>
+            <div class="p-content">扫描 PR body 中 closes/fixes #N；自动推进 in-progress → needs-review；检测 commit > review 时间</div>
+          </div>
+          <div class="priority-item">
+            <span class="p-tag">Pane</span>
+            <div class="p-content">
+              抓取 Claude / Codex pane 最后 <strong>30 行</strong>内容：判断忙碌状态 + 感知 worker 最近的执行结果
+              <span class="ref">tmux capture-pane -p -t {pane} -S -30</span>
+            </div>
+          </div>
+          <div class="priority-item">
+            <span class="p-tag">Lock</span>
+            <div class="p-content">读取 run_lock，若为 true 则跳过本轮（防并发）</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-block">
+        <div class="step-title">
+          <div class="step-num">2</div>
+          <h3>处理 Claude 侧（忙碌则跳过）</h3>
+        </div>
+        <div class="priority-list">
+          <div class="priority-item">
+            <span class="p-tag">P1</span>
+            <div class="p-content">有 <span class="label-badge lbl-review">needs-review</span> Issue → 派发 review 请求，通过后直接 merge <span class="ref">refs/review-and-merge.md</span></div>
+          </div>
+          <div class="priority-item">
+            <span class="p-tag">P2</span>
+            <div class="p-content">有 <span class="label-badge lbl-verifying">verifying</span> Issue → 派发验收请求 <span class="ref">refs/deliverable-verify.md</span></div>
+          </div>
+          <div class="priority-item">
+            <span class="p-tag">P3</span>
+            <div class="p-content">
+              有 <span class="label-badge lbl-pending">pending</span> + <span class="label-badge lbl-owner">owner/claude</span> → 取编号最小，综合判断后派发
+              <br><span class="ref">读取该 Issue 完整评论历史 + Claude pane 内容，LLM 综合推断：任务是否已被处理、是否有未响应的 HUMAN 反馈、应使用标准格式还是带反馈格式。refs/task-dispatch.md</span>
+            </div>
+          </div>
+          <div class="priority-item">
+            <span class="p-tag">P4</span>
+            <div class="p-content">有 <span class="label-badge lbl-pending">pending</span> + 无 owner label → 派发路由请求，Claude 判断 owner 或拆解 epic</div>
+          </div>
+          <div class="priority-item">
+            <span class="p-tag">P5</span>
+            <div class="p-content">以上均无 → 本轮无动作</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-block">
+        <div class="step-title">
+          <div class="step-num">3</div>
+          <h3>处理 Codex 侧（忙碌则跳过）</h3>
+        </div>
+        <div class="priority-list">
+          <div class="priority-item">
+            <span class="p-tag">P1</span>
+            <div class="p-content">有 <span class="label-badge lbl-changes">changes-requested</span> Issue → 派发 fix 请求，原文转发 review 意见 <span class="ref">refs/fix-dispatch.md</span></div>
+          </div>
+          <div class="priority-item">
+            <span class="p-tag">P2</span>
+            <div class="p-content">
+              有 <span class="label-badge lbl-pending">pending</span> + <span class="label-badge lbl-owner">owner/codex</span> → 取编号最小，综合判断后派发
+              <span class="ref">读取该 Issue 完整评论历史 + Codex pane 内容，LLM 综合推断。refs/task-dispatch.md</span>
+            </div>
+          </div>
+          <div class="priority-item">
+            <span class="p-tag">P3</span>
+            <div class="p-content">以上均无 → 本轮无动作</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 14px 16px; margin-top: 4px; font-size: 0.85rem; color: #92400e;">
+        <strong>全局异常：</strong> 两侧均无动作时 — 有 in-progress 但 worker 空闲超 2h → Feishu 通知；所有 Issue verified + 无 pending → 通知"请下发新任务"（去重）；连续失败 3 次 → Feishu 通知
+      </div>
+    </div>
+  </div>
+
+  <!-- 六、派发动作顺序 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="section-num">六</div>
+      <h2>派发动作顺序（必须严格按序）</h2>
+    </div>
+    <div class="card-body">
+      <p style="font-size:0.87rem; color:#6b7280; margin-bottom:14px;">
+        每次决定派发后，以下三步必须按顺序执行。顺序不可颠倒，原因见各步说明。
+      </p>
+      <div class="dispatch-order">
+        <div class="dispatch-step">
+          <div class="ds-num">1</div>
+          <div class="ds-content">
+            <div class="ds-title">写 【OPENCLAW】 派发评论到 Issue</div>
+            <div class="ds-note"><code class="inline">gh issue comment {N} --body "【OPENCLAW】已将此任务派发给 @{worker}…"</code></div>
+            <div class="ds-why">⚑ 必须最先做：这是唯一持久化的派发记录。即使后续步骤失败，下一轮也能通过此评论感知「曾经派发过」，避免状态完全丢失。</div>
+          </div>
+        </div>
+        <div class="dispatch-step">
+          <div class="ds-num">2</div>
+          <div class="ds-content">
+            <div class="ds-title">更新 Issue label：pending → in-progress</div>
+            <div class="ds-note"><code class="inline">gh issue edit {N} --add-label in-progress --remove-label pending</code></div>
+            <div class="ds-why">⚑ 评论已写，此时改 label 是安全的。即使第 3 步失败，下一轮看到 in-progress + 派发评论 + worker 空闲 → 走 stale 自愈逻辑重新派发。</div>
+          </div>
+        </div>
+        <div class="dispatch-step">
+          <div class="ds-num">3</div>
+          <div class="ds-content">
+            <div class="ds-title">tmux 发消息给 worker</div>
+            <div class="ds-note"><code class="inline">bash scripts/tmux_dispatch.sh {pane} "{payload}"</code></div>
+            <div class="ds-why">⚑ 最后执行：若 dispatch=failed，不影响已写入的评论和 label，下一轮 stale 检测自动恢复。</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 14px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 14px; font-size: 0.84rem; color: #065f46;">
+        <strong>中断容错：</strong> 任何步骤中断后，下一轮 LLM 通过读取 Issue 评论历史 + pane 内容，可以准确判断执行到了哪一步，采取正确的恢复动作。
+      </div>
+    </div>
+  </div>
+
+  <!-- 七、状态感知与 LLM 判断 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="section-num">七</div>
+      <h2>状态感知与 LLM 判断（P3 核心逻辑）</h2>
+    </div>
+    <div class="card-body">
+      <p style="font-size:0.87rem; color:#6b7280; margin-bottom:16px;">
+        遇到 <span class="label-badge lbl-pending">pending</span> + owner/claude 或 owner/codex 的 Issue 时，不使用规则枚举，而是将完整信息交给 LLM 综合判断。
+      </p>
+
+      <div style="font-size:0.9rem; font-weight:650; color:#374151; margin-bottom:10px;">输入信息</div>
+      <table style="margin-bottom:16px;">
+        <thead><tr><th>信息源</th><th>读取内容</th><th>作用</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Issue 评论历史</td>
+            <td>最近 10 条，含时间戳和发送者前缀</td>
+            <td>判断最后一次派发时间、是否有 HUMAN 反馈、worker 是否已回复</td>
+          </tr>
+          <tr>
+            <td>Worker pane</td>
+            <td>最近 30 行</td>
+            <td>感知 worker 当前是否在执行、最近是否完成了相关任务</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="font-size:0.9rem; font-weight:650; color:#374151; margin-bottom:10px;">判断维度（LLM 综合推断，不是机械规则）</div>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px;">
+        <div style="background:#f8f9fb; border-radius:8px; padding:10px 14px; font-size:0.85rem;">
+          <strong>任务是否已处理？</strong> — pane 显示 worker 最近说"已完成/已处理"，且评论中有对应的 【CLAUDE】 回复 → 工作已做，只需修正 label，不重新派发
+        </div>
+        <div style="background:#f8f9fb; border-radius:8px; padding:10px 14px; font-size:0.85rem;">
+          <strong>是否有 HUMAN 反馈？</strong> — 找最近一条 【OPENCLAW】派发评论，其后是否存在无系统前缀的评论 → 有则附带反馈内容派发；无则标准派发
+        </div>
+        <div style="background:#f8f9fb; border-radius:8px; padding:10px 14px; font-size:0.85rem;">
+          <strong>payload 编码是否正确？</strong> — 从 gh issue view --json 读取评论时，必须通过 <code class="inline">jq -r</code> 解码，确保中文为原始 UTF-8，不含 \uXXXX 转义序列
+        </div>
+      </div>
+
+      <div style="font-size:0.9rem; font-weight:650; color:#374151; margin-bottom:10px;">Claude Issue 评论规范</div>
+      <div style="background:#fef3c7; border:1px solid #fde68a; border-radius:8px; padding:10px 14px; font-size:0.85rem; color:#92400e;">
+        Claude 发布到 Issue 的所有评论必须以 <strong>【CLAUDE】</strong> 开头。这是系统区分 HUMAN 评论与 Claude 回复的唯一依据，缺少前缀会导致下一轮将 Claude 的回复误判为新的 HUMAN 反馈。
+      </div>
+    </div>
+  </div>
+
+  <!-- 八、异常自愈案例 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="section-num">八</div>
+      <h2>异常自愈案例</h2>
+    </div>
+    <div class="card-body">
+      <p style="font-size:0.87rem; color:#6b7280; margin-bottom:16px;">
+        以实际发生的 Issue #51 异常为例，展示新设计如何识别并恢复。
+      </p>
+
+      <div style="font-size:0.9rem; font-weight:650; color:#374151; margin-bottom:10px;">事件时序</div>
+      <div class="case-timeline">
+        <div class="case-event">
+          <div class="case-time">14:02</div>
+          <div class="case-tag sys">OPENCLAW</div>
+          <div class="case-body">已将此任务派发给 @claude（第二轮）</div>
+        </div>
+        <div class="case-event">
+          <div class="case-time">14:02</div>
+          <div class="case-tag claude">CLAUDE</div>
+          <div class="case-body">【CLAUDE】方案概要… （正常回复，有前缀）</div>
+        </div>
+        <div class="case-event">
+          <div class="case-time">14:10</div>
+          <div class="case-tag sys">OPENCLAW</div>
+          <div class="case-body">PR #56 创建，推进为 verifying，owner → shuzai</div>
+        </div>
+        <div class="case-event">
+          <div class="case-time">14:35</div>
+          <div class="case-tag human">HUMAN</div>
+          <div class="case-body">「进一步结合这篇文章的实践经验，优化你的分析报告和方案。https://…」<br>→ owner/shuzai 处理：verifying → pending，owner → claude ✓</div>
+        </div>
+        <div class="case-event">
+          <div class="case-time">某一轮</div>
+          <div class="case-tag bug">BUG</div>
+          <div class="case-body">openclaw 派发到 Claude，Claude 处理后回复（评论无 【CLAUDE】 前缀）<br><strong>派发评论和 label 更新均未执行</strong> → label 卡在 pending</div>
+        </div>
+        <div class="case-event">
+          <div class="case-time">05:08</div>
+          <div class="case-tag bug">无前缀</div>
+          <div class="case-body">## 方案修订：整合 Anthropic Harness 实践洞察…（Claude 的回复，但无 【CLAUDE】 前缀）</div>
+        </div>
+        <div class="case-event">
+          <div class="case-time">重复轮</div>
+          <div class="case-tag bug">循环</div>
+          <div class="case-body">系统看到 pending + 最新无前缀评论 → 误判为新 HUMAN 反馈 → 重复派发，Claude 说"已完成"但 label 不变 → 无限循环</div>
+        </div>
+      </div>
+
+      <div class="case-decision" style="margin-top:16px;">
+        <div class="cd-title">新设计如何处理此场景</div>
+        <div class="cd-inputs">
+          <div class="cd-input-box">
+            <div class="label">Issue 评论历史（LLM 读到）</div>
+            <div class="content">
+              [14:02] 【OPENCLAW】已派发给 @claude<br>
+              [14:02] 【CLAUDE】方案概要…<br>
+              [14:10] 【OPENCLAW】PR #56 → verifying<br>
+              [14:35] HUMAN: 进一步结合这篇…<br>
+              [05:08] ## 方案修订：整合… （无前缀）
+            </div>
+          </div>
+          <div class="cd-input-box">
+            <div class="label">Claude pane 内容（LLM 读到）</div>
+            <div class="content">
+              ⏺ 这个反馈内容正是我刚刚<br>
+              在上一轮完成的 Issue 评论<br>
+              内容，所有三步均已完成：<br>
+              ① Issue 评论已回填<br>
+              ② 文档已更新<br>
+              ③ PR #56 已推送<br>
+              无需重复执行。<br>
+              ❯
+            </div>
+          </div>
+        </div>
+        <div class="cd-result">
+          <strong>LLM 综合判断：</strong> pane 明确显示 Claude 已完成三步工作；14:35 的 HUMAN 反馈对应的处理结果在评论 [05:08]（内容为"方案修订"，与 HUMAN 要求匹配）。当前状态为：工作已完成，但派发评论和 label 未更新。<br><br>
+          <strong>动作：</strong> ① 补写 【OPENCLAW】派发评论（记录这次处理）② 更新 label pending → in-progress ③ 跳过 tmux 派发（无需重复）<br><br>
+          <strong>下一轮：</strong> Step 1 检测到 PR #56 关联 #51，label=in-progress → 推进为 verifying，正常流程恢复。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 九、Worker 忙碌判断 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="section-num">九</div>
+      <h2>Worker 忙碌判断</h2>
+    </div>
+    <div class="card-body">
+      <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 14px;">
+        抓取 tmux pane 最近 <strong>30 行</strong>内容判断，不使用时间阈值。Claude 和 Codex 通用相同规则。
+      </div>
+      <div class="detect-grid">
+        <div class="detect-card busy">
+          <div class="dc-title">忙碌 — 有进行时内容</div>
+          <ul>
+            <li><code class="inline">…ing</code> 类文本：Thinking… / Running… / Writing… / Reading…</li>
+            <li>spinner 字符：<code class="inline">⠋</code> <code class="inline">⠙</code> <code class="inline">⠹</code> <code class="inline">⠸</code> 等</li>
+            <li>工具调用行：<code class="inline">⏺ Bash(</code> / <code class="inline">⏺ Read(</code> / <code class="inline">⏺ Write(</code> 等</li>
+          </ul>
+        </div>
+        <div class="detect-card idle">
+          <div class="dc-title">空闲 — 等待输入</div>
+          <ul>
+            <li>最后一个非空行是输入提示符</li>
+            <li><code class="inline">❯</code> — Claude Code 默认提示符</li>
+            <li><code class="inline">$</code> 或其他 shell 提示符（Codex 环境）</li>
+          </ul>
+        </div>
+      </div>
+      <div style="margin-top: 14px; background: #f3f4f6; border-radius: 8px; padding: 10px 14px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.82rem; color: #374151;">
+        tmux capture-pane -p -t {session:window.pane} -S -30
+      </div>
+      <div style="margin-top: 10px; font-size: 0.83rem; color: #6b7280;">
+        若 pane 不存在 → 视为会话缺失，参考 <code class="inline">refs/session-recovery.md</code>
+      </div>
+    </div>
+  </div>
+
+  <!-- 十、Memory 数据结构 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="section-num">十</div>
+      <h2>Memory 数据结构</h2>
+    </div>
+    <div class="card-body">
+      <div class="memory-yaml">
+<span class="key">workers</span>:
+  <span class="key">claude</span>:
+    <span class="key">last_dispatched_at</span>: <span class="str">""</span>      <span class="comment"># ISO8601</span>
+    <span class="key">last_issue_number</span>: <span class="val">null</span>
+  <span class="key">codex</span>:
+    <span class="key">last_dispatched_at</span>: <span class="str">""</span>
+    <span class="key">last_issue_number</span>: <span class="val">null</span>
+
+<span class="key">notifications</span>:
+  <span class="key">all_verified_notified_at</span>: <span class="val">null</span>   <span class="comment"># 防止重复通知</span>
+  <span class="key">last_feishu_report_hash</span>: <span class="str">""</span>      <span class="comment"># Issue label 状态 hash，内容不变时跳过报告</span>
+
+<span class="key">run_lock</span>: <span class="val">false</span>    <span class="comment"># 防并发：本轮执行中设为 true，完成后清除</span>
+      </div>
+      <div style="margin-top: 12px; font-size: 0.84rem; color: #6b7280; line-height: 1.65;">
+        Memory 只存调度状态，任务详情（Issue 内容、PR 链接、review 意见）全部存在 GitHub Issues，不在 Memory 中冗余。
+      </div>
+    </div>
+  </div>
+
+  <!-- 十一、Feishu 进度报告格式 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="section-num">十一</div>
+      <h2>Feishu 进度报告格式</h2>
+    </div>
+    <div class="card-body">
+      <div style="font-size: 0.84rem; color: #6b7280; margin-bottom: 12px;">
+        仅当 Issue label 状态有变化时（hash 变化）发送，避免无效噪音。
+      </div>
+      <div class="feishu-preview">【开发进度 2026-03-29 14:30】
+
+▶ 进行中
+  #42 JWT refresh token 支持
+    执行者：Codex｜状态：in-progress
+
+◎ 待验收
+  #38 用户头像上传功能
+    PR 已合并，等待 Claude 验证主干流程
+
+○ 待派发
+  #45 接口文档补全 → 待派给 Claude
+  #47 登录页样式优化 → 待路由
+
+✓ 已交付（本批次）
+  #35 密码重置邮件｜2026-03-29 11:22 验收通过
+
+—— 本轮动作：向 Codex 派发 Issue #42 开发任务（分支 issue-42）</div>
+    </div>
+  </div>
+
+  <!-- 十二、新旧方案对比 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="section-num">十二</div>
+      <h2>新旧方案对比</h2>
+    </div>
+    <div class="card-body">
+      <div class="compare-grid">
+        <div class="compare-col old">
+          <h4>旧方案（规则枚举 + 脆弱信号）</h4>
+          <ul>
+            <li>用"最新评论前缀"单一信号判断状态</li>
+            <li>派发后动作分散，中断即状态不一致</li>
+            <li>评论内缺少前缀 → 被误判为 HUMAN 反馈</li>
+            <li>pane 只读 10 行，感知不到 worker 执行结果</li>
+            <li>派发评论写在最后，中断后无历史锚点</li>
+            <li>中断后无自愈，重复派发形成死循环</li>
+            <li>JSON 评论文本未解码，\uXXXX 乱码发送</li>
+          </ul>
+        </div>
+        <div class="compare-col new">
+          <h4>新方案（完整信息 + LLM 综合判断）</h4>
+          <ul>
+            <li>读取完整评论历史 + pane 30 行，LLM 综合推断</li>
+            <li>派发评论永远最先写，是不变的历史锚点</li>
+            <li>Claude 评论强制 【CLAUDE】 前缀，身份识别可靠</li>
+            <li>pane 内容作为辅助信号感知 worker 真实状态</li>
+            <li>中断后下轮可准确判断执行到哪一步并恢复</li>
+            <li>评论文本通过 jq -r 解码，确保 UTF-8 正确传递</li>
+            <li>LLM 判断替代规则枚举，处理边缘 case 更健壮</li>
+          </ul>
+        </div>
+      </div>
+
+      <div style="margin-top: 18px; overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>维度</th>
+              <th>旧方案</th>
+              <th>新方案</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>状态判断依据</td><td>单一信号（最新评论前缀）</td><td>Issue 评论历史 + pane 内容（LLM 综合）</td></tr>
+            <tr><td>派发记录</td><td>写在动作最后，易丢失</td><td>写在最先，是不变锚点</td></tr>
+            <tr><td>中断恢复</td><td>状态不一致，重复派发</td><td>下轮 LLM 根据历史推断，精准恢复</td></tr>
+            <tr><td>评论身份识别</td><td>依赖前缀，缺失即误判</td><td>强制前缀 + pane 双重验证</td></tr>
+            <tr><td>中文编码</td><td>直接嵌 JSON，\uXXXX 乱码</td><td>jq -r 解码，原始 UTF-8</td></tr>
+            <tr><td>任务模型</td><td>单队列串行</td><td>多任务并行多阶段</td></tr>
+            <tr><td>worker 调度</td><td>互斥等待</td><td>独立调度，同轮双发</td></tr>
+            <tr><td>交付定义</td><td>PR merge</td><td>Claude 验收主干流程通过</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
