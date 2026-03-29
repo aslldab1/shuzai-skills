@@ -30,7 +30,13 @@ Owner label（与状态 label 并用）：
 
 所有评论使用同一 git 账号，通过开头标识区分：
 - `【OPENCLAW】` — 系统自动写入（派发通知、label 变更记录）
-- `【CLAUDE】` — Claude 写入（方案概要、进度摘要、验收报告）
+- `【CLAUDE】` — Claude 写入（方案概要、进度摘要、验收报告、完成信号）
+- `【CODEX】` — Codex 写入（进度摘要、完成信号）
+
+**完成信号**（openclaw 唯一的状态推进依据）：
+- `【CLAUDE】【完成】PR #{pr_number} related to #{N}` — Claude 任务完成
+- `【CODEX】【完成】PR #{pr_number} related to #{N}` — Codex 任务完成
+- 无 PR 的纯文档/设计任务：`【CLAUDE】【完成】无 PR，产出已在 Issue 评论中`
 
 ### HUMAN 操作指引
 
@@ -65,19 +71,21 @@ Codex 开始工作前必须设置 `GH_TOKEN` 为 codex-bot 的 token。验证：
 
 **GitHub Issues：**
 - 读取所有 open Issues 及 label
-- 检测 stale in-progress：label=in-progress + 对应 worker 空闲 + 无关联 open PR
-  - 有对应分支（`issue-{N}` 等）→ 标记为待恢复，下轮派发"恢复执行"消息，label 保持 in-progress
-  - 无分支 → 重置为 `pending`（保留 owner label），留 【OPENCLAW】 评论说明原因
-- **对每个 `pending` + `owner/claude` 或 `owner/codex` 的 Issue，额外读取最近 10 条评论（含 body 和 createdAt），供 Step 2/3 判断使用**
+- **对每个 `in-progress` Issue，读取最近 10 条评论（含 body 和 createdAt）：**
+  - 检测完成信号：最新评论含 `【CLAUDE】【完成】` 或 `【CODEX】【完成】`
+    - owner/claude 完成 → 推进为 `verifying + owner/shuzai`，Feishu 通知 HUMAN，留 【OPENCLAW】 评论
+    - owner/codex 完成 → 推进为 `needs-review`，留 【OPENCLAW】 评论
+  - 检测 stale：无完成信号 + 最后活动时间（最新评论或分支最新 commit）距今 > 20 分钟
+    - → 标记为"待确认"，Step 2/3 发送进度确认消息（参考：refs/progress-confirm.md）
+- **对每个 `pending` + `owner/claude` 或 `owner/codex` 的 Issue，额外读取最近 10 条评论，供 Step 2/3 派发判断使用**
 
 **GitHub PR：**
-- 扫描所有 open PR 的 body，通过 `related to #N` / `closes #N` / `fixes #N` / `refs #N` 识别关联 Issue
-  - 关联 Issue label=`in-progress` + `owner/codex` → 自动推进为 `needs-review`，留 【OPENCLAW】 评论
-  - 关联 Issue label=`in-progress` + `owner/claude` → 自动推进为 `verifying`，同时将 owner 改为 `owner/shuzai`，发 Feishu 通知 HUMAN，留 【OPENCLAW】 评论
-- 若 PR 最新提交时间 > 最新 review 时间 → 自动将 label 从 `changes-requested` 更新为 `needs-review`
+- 扫描所有 open PR，通过 body 中 `related to #N` / `closes #N` / `fixes #N` / `refs #N` 建立 PR ↔ Issue 关联映射
+  - **仅供后续步骤查询使用，不触发状态自动推进**
+- 若 PR 最新提交时间 > 最新 review 时间 → 自动将 label 从 `changes-requested` 更新为 `needs-review`（客观事实，无需 worker 信号）
 
 **Pane 状态：**
-- 抓取 Claude / Codex pane 最后 **30 行**，判断忙碌状态 + 感知 worker 最近执行结果
+- 抓取 Claude / Codex pane 最后 **30 行**，判断忙碌状态
 - → 参考：refs/busy-detection.md
 
 **Memory：**
@@ -97,20 +105,24 @@ bash scripts/busy_check.sh {claude_pane}
 → 派发 review 请求，Claude review 通过后直接 merge
 → 参考：refs/review-and-merge.md
 
-**P2** — 有 `verifying` + `owner/codex` Issue
+**P2** — 有 `in-progress` + `owner/claude` + stale（Step 1 标记为"待确认"）
+→ 发送进度确认消息，等待 Claude 回复
+→ 参考：refs/progress-confirm.md
+
+**P3** — 有 `verifying` + `owner/codex` Issue
 → 派发验收请求给 Claude，由 Claude 验收 Codex 的实现
 → 参考：refs/deliverable-verify.md
 
-**P3** — 有 `pending` + `owner/claude` Issue
+**P4** — 有 `pending` + `owner/claude` Issue
 → 取编号最小的一条
 → **读取该 Issue 完整评论历史（Step 1 已读）+ Claude pane 内容，综合判断当前状态后派发**
 → 参考：refs/task-dispatch.md
 
-**P4** — 有 `pending` + 无 owner label 的 Issue
+**P5** — 有 `pending` + 无 owner label 的 Issue
 → 派发路由请求，Claude 判断 owner 或拆解 epic
 → 要求：① 小任务直接打 owner/claude 或 owner/codex；② 大需求拆子 Issue 并打 epic；③ 路由结果写 【CLAUDE】 评论到 Issue
 
-**P5** — 以上均无
+**P6** — 以上均无
 → Claude 侧本轮无动作
 
 ### Step 3 — 处理 Codex 侧
@@ -127,12 +139,16 @@ bash scripts/busy_check.sh {codex_pane}
 → 派发修复请求，原文转发 Claude 的 review 意见
 → 参考：refs/fix-dispatch.md
 
-**P2** — 有 `pending` + `owner/codex` Issue
+**P2** — 有 `in-progress` + `owner/codex` + stale（Step 1 标记为"待确认"）
+→ 发送进度确认消息，等待 Codex 回复
+→ 参考：refs/progress-confirm.md
+
+**P3** — 有 `pending` + `owner/codex` Issue
 → 取编号最小的一条
 → **读取该 Issue 完整评论历史（Step 1 已读）+ Codex pane 内容，综合判断当前状态后派发**
 → 参考：refs/task-dispatch.md
 
-**P3** — 以上均无
+**P4** — 以上均无
 → Codex 侧本轮无动作
 
 ### owner/shuzai 处理（Step 1 完成后、Step 2 之前）
@@ -166,7 +182,7 @@ gh issue view {N} --json comments --jq '.comments | last'
 
 ### 全局异常（两侧均无动作时）
 
-- 有 `in-progress` 任务但两侧均空闲超过 2 小时（以 Issue 最新评论或分支最新 commit 时间为准）→ Feishu 通知人工
+- 有 `in-progress` 任务且进度确认消息已发出超过 1 小时仍无回复 → Feishu 通知人工（worker 可能彻底卡死）
 - 所有 Issue 均为 `verified` 且无 pending → Feishu 通知人工"请下发新任务"（每次进入此状态只通知一次）
 - 连续派发失败 3 次 → Feishu 通知人工
 - Worker 会话缺失 → 参考：refs/session-recovery.md

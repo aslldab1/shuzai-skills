@@ -50,8 +50,10 @@ Issue #{N}：{Issue标题}
 ③ 将详细技术方案输出到仓库文档（docs/tasks/issue-{N}-{slug}.md）
    Issue 评论中贴带分支的直链，格式：
    https://github.com/{owner}/{repo}/blob/{branch}/docs/tasks/issue-{N}-{slug}.md
-④ 完成实现后，push 分支并开 PR
-   PR body 中必须包含 `related to #{N}`（不要用 closes/fixes/refs，避免歧义）
+④ 完成后，push 分支并开 PR，PR body 中包含 `related to #{N}`
+⑤ 在 Issue 写完成信号（这是 openclaw 推进状态的唯一依据）：
+   有 PR：`【CLAUDE】【完成】PR #{pr_number} related to #{N}`
+   无 PR（纯文档/设计）：`【CLAUDE】【完成】无 PR，产出已在 Issue 评论中`
 ```
 
 **带人工反馈格式（有 HUMAN 评论时必须使用）：**
@@ -74,8 +76,8 @@ Issue #{N}：{Issue标题}
 ② 在 Issue 评论中回复针对反馈的修改方案（2~3 句）
    **必须以 【CLAUDE】 开头，例如：`【CLAUDE】方案修订：…`**
 ③ 更新方案文档（若已存在 docs/tasks/issue-{N}-{slug}.md 则在原文件修订）
-④ 完成后，push 分支并开 PR
-   PR body 中必须包含 `related to #{N}`（不要用 closes/fixes/refs，避免歧义）
+④ 完成后，push 分支并开 PR，PR body 中包含 `related to #{N}`
+⑤ 在 Issue 写完成信号：`【CLAUDE】【完成】PR #{pr_number} related to #{N}`
 ```
 
 ## Codex 开发任务消息格式
@@ -92,7 +94,10 @@ Issue #{N}：{Issue标题}
 - {条件2}
 范围边界：{明确不包含的内容}
 
-完成后：push 分支并开 PR，PR body 中必须包含 "related to #{N}"（不要用 closes/fixes，避免 GitHub 自动关闭 Issue）
+完成后：
+1. push 分支并开 PR，PR body 中包含 "related to #{N}"
+2. 在 Issue 写完成信号：`【CODEX】【完成】PR #{pr_number} related to #{N}`
+   （这是 openclaw 推进状态的唯一依据）
 ```
 
 ## 派发动作（必须严格按序）
