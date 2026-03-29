@@ -52,8 +52,8 @@ def load_skill_with_refs():
             return f"→ [展开 {match.group(1)}]\n\n{content}\n"
         return match.group(0)
 
-    # 匹配 → 参考：refs/xxx.md 或行尾的 refs/xxx.md
-    skill_content = re.sub(r"→ 参考：refs/([\w\-]+\.md)", inline_ref, skill_content)
+    # 匹配 → 需要时读取：refs/xxx.md 和旧格式 → 参考：refs/xxx.md
+    skill_content = re.sub(r"→ (?:需要时读取|参考)：refs/([\w\-]+\.md)", inline_ref, skill_content)
     return skill_content
 
 # ── 颜色 ───────────────────────────────────────────────────────────────────────
