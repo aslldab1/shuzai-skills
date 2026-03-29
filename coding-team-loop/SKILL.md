@@ -5,6 +5,12 @@ description: openclaw 协调 Claude + Codex 双 worker 开发循环。以 GitHub
 
 # Coding Team Loop
 
+## 执行纪律
+
+- **refs/ 文件禁止预读**：遇到 `→ 需要时读取：refs/xxx.md` 标记时，只在执行到该分支且确认需要执行时才 read，未命中的分支不读。每轮通常只会命中 1-2 个 ref，全部预读是浪费。
+- 已在 SKILL.md 正文中写明的规则不需要再读 ref 确认。ref 文件只包含正文未覆盖的执行细节（消息模板、脚本参数等）。
+- **禁止环境探测**：不要 `ls`、`git remote -v`、`echo $GH_REPO` 等命令。所有固定信息已在 cron payload 或本文件中给出。
+
 ## 全局约定
 
 ### Issue Label 规范
@@ -71,13 +77,19 @@ Codex 开始工作前必须设置 `GH_TOKEN` 为 codex-bot 的 token。验证：
 
 **GitHub Issues：**
 - 读取所有 open Issues 及 label
-- **对每个 `in-progress` Issue，读取最近 10 条评论（含 body 和 createdAt）：**
+- **对每个 `in-progress` Issue，读取最近 10 条评论（只取 author/body/createdAt，控制数据量）：**
+  ```bash
+  gh issue view {N} --repo {REPO} --json comments --jq '.comments[-10:] | map({author:.author.login,body:.body,createdAt:.createdAt})'
+  ```
   - 检测完成信号：最新评论含 `【CLAUDE】【完成】` 或 `【CODEX】【完成】`
     - owner/claude 完成 → 推进为 `verifying + owner/shuzai`，Feishu 通知 HUMAN，留 【OPENCLAW】 评论
     - owner/codex 完成 → 推进为 `needs-review`，留 【OPENCLAW】 评论
   - 检测 stale：无完成信号 + 最后活动时间（最新评论或分支最新 commit）距今 > 20 分钟
-    - → 标记为"待确认"，Step 2/3 发送进度确认消息（参考：refs/progress-confirm.md）
-- **对每个 `pending` + `owner/claude` 或 `owner/codex` 的 Issue，额外读取最近 10 条评论，供 Step 2/3 派发判断使用**
+    - → 标记为"待确认"，Step 2/3 发送进度确认消息（→ 需要时读取：refs/progress-confirm.md）
+- **对每个 `pending` + `owner/claude` 或 `owner/codex` 的 Issue，额外读取最近 10 条评论，供 Step 2/3 派发判断使用：**
+  ```bash
+  gh issue view {N} --repo {REPO} --json comments --jq '.comments[-10:] | map({author:.author.login,body:.body,createdAt:.createdAt})'
+  ```
 
 **GitHub PR：**
 - 扫描所有 open PR，通过 body 中 `related to #N` / `closes #N` / `fixes #N` / `refs #N` 建立 PR ↔ Issue 关联映射
@@ -86,7 +98,7 @@ Codex 开始工作前必须设置 `GH_TOKEN` 为 codex-bot 的 token。验证：
 
 **Pane 状态：**
 - 抓取 Claude / Codex pane 最后 **30 行**，判断忙碌状态
-- → 参考：refs/busy-detection.md
+- → 需要时读取：refs/busy-detection.md
 
 **Memory：**
 - 读取 `run_lock`，若为 true 说明上一轮仍在执行，跳过本轮
@@ -97,26 +109,26 @@ Codex 开始工作前必须设置 `GH_TOKEN` 为 codex-bot 的 token。验证：
 ```bash
 bash scripts/busy_check.sh {claude_pane}
 ```
-**只检查最底部 5 行非空行：行首符号 + 动名词**（`✢ Generating`、`• Working` 等）或行首 spinner。单独符号不算忙碌（`✻ Conversation compacted` 不匹配）。**输出 BUSY → 忙碌，跳过；输出 IDLE → 可派发**。匹配到时会同时输出匹配行，便于事后排查。→ 参考：refs/busy-detection.md
+**只检查最底部 5 行非空行：行首符号 + 动名词**（`✢ Generating`、`• Working` 等）或行首 spinner。单独符号不算忙碌（`✻ Conversation compacted` 不匹配）。**输出 BUSY → 忙碌，跳过；输出 IDLE → 可派发**。匹配到时会同时输出匹配行，便于事后排查。→ 需要时读取：refs/busy-detection.md
 
 按优先级选择第一个匹配：
 
 **P1** — 有 `needs-review` Issue
 → 派发 review 请求，Claude review 通过后直接 merge
-→ 参考：refs/review-and-merge.md
+→ 需要时读取：refs/review-and-merge.md
 
 **P2** — 有 `in-progress` + `owner/claude` + stale（Step 1 标记为"待确认"）
 → 发送进度确认消息，等待 Claude 回复
-→ 参考：refs/progress-confirm.md
+→ 需要时读取：refs/progress-confirm.md
 
 **P3** — 有 `verifying` + `owner/codex` Issue
 → 派发验收请求给 Claude，由 Claude 验收 Codex 的实现
-→ 参考：refs/deliverable-verify.md
+→ 需要时读取：refs/deliverable-verify.md
 
 **P4** — 有 `pending` + `owner/claude` Issue
 → 取编号最小的一条
 → **读取该 Issue 完整评论历史（Step 1 已读）+ Claude pane 内容，综合判断当前状态后派发**
-→ 参考：refs/task-dispatch.md
+→ 需要时读取：refs/task-dispatch.md
 
 **P5** — 有 `pending` + 无 owner label 的 Issue
 → 派发路由请求，Claude 判断 owner 或拆解 epic
@@ -137,35 +149,35 @@ bash scripts/busy_check.sh {codex_pane}
 
 **P1** — 有 `changes-requested` Issue
 → 派发修复请求，原文转发 Claude 的 review 意见
-→ 参考：refs/fix-dispatch.md
+→ 需要时读取：refs/fix-dispatch.md
 
 **P2** — 有 `in-progress` + `owner/codex` + stale（Step 1 标记为"待确认"）
 → 发送进度确认消息，等待 Codex 回复
-→ 参考：refs/progress-confirm.md
+→ 需要时读取：refs/progress-confirm.md
 
 **P3** — 有 `pending` + `owner/codex` Issue
 → 取编号最小的一条
 → **读取该 Issue 完整评论历史（Step 1 已读）+ Codex pane 内容，综合判断当前状态后派发**
-→ 参考：refs/task-dispatch.md
+→ 需要时读取：refs/task-dispatch.md
 
 **P4** — 以上均无
 → Codex 侧本轮无动作
 
 ### owner/shuzai 处理（Step 1 完成后、Step 2 之前）
 
-→ 参考：refs/human-handoff.md
+→ 需要时读取：refs/human-handoff.md
 
 ### 全局异常（两侧均无动作时）
 
 - 有 `in-progress` 任务且进度确认消息已发出超过 1 小时仍无回复 → Feishu 通知人工（worker 可能彻底卡死）
 - 所有 Issue 均为 `verified` 且无 pending → Feishu 通知人工"请下发新任务"（每次进入此状态只通知一次）
 - 连续派发失败 3 次 → Feishu 通知人工
-- Worker 会话缺失 → 参考：refs/session-recovery.md
+- Worker 会话缺失 → 需要时读取：refs/session-recovery.md
 
 ### Step 4 — 输出进度报告（每轮必须执行）
 
 **本轮所有操作完成后，先读取 refs/progress-report-format.md，按其中的模板逐字段填写输出。**
-→ 参考：refs/progress-report-format.md
+→ 需要时读取：refs/progress-report-format.md
 
 ---
 
