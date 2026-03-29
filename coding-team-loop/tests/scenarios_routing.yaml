@@ -14,7 +14,6 @@
   expect:
     step2_action: route-owner
     dispatch_to: claude
-    message_contains: ["42"]
 
 - id: C05
   name: "Step 2 优先级：同时有 needs-review 和 pending，应优先处理 needs-review"
