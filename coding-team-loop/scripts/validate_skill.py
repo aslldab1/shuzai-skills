@@ -38,6 +38,24 @@ def load_all_scenarios():
         all_scenarios.extend(yaml.safe_load(f.read_text(encoding="utf-8")) or [])
     return all_scenarios
 
+
+def load_skill_with_refs():
+    """加载 SKILL.md，并将所有 refs/*.md 引用内联展开。"""
+    import re
+    skill_content = SKILL_MD.read_text(encoding="utf-8")
+    refs_dir = SKILL_DIR / "refs"
+
+    def inline_ref(match):
+        ref_file = refs_dir / match.group(1)
+        if ref_file.exists():
+            content = ref_file.read_text(encoding="utf-8")
+            return f"→ [展开 {match.group(1)}]\n\n{content}\n"
+        return match.group(0)
+
+    # 匹配 → 参考：refs/xxx.md 或行尾的 refs/xxx.md
+    skill_content = re.sub(r"→ 参考：refs/([\w\-]+\.md)", inline_ref, skill_content)
+    return skill_content
+
 # ── 颜色 ───────────────────────────────────────────────────────────────────────
 GREEN  = "\033[32m"
 RED    = "\033[31m"
@@ -224,7 +242,7 @@ def main():
     parser.add_argument("--verbose",  action="store_true", help="显示 OpenClaw 原始回复")
     args = parser.parse_args()
 
-    skill_content = SKILL_MD.read_text(encoding="utf-8")
+    skill_content = load_skill_with_refs()
     scenarios     = load_all_scenarios()
 
     if args.scenario:

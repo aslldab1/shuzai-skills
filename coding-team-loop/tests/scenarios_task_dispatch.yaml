@@ -86,7 +86,7 @@
   expect:
     step2_action: task-dispatch
     dispatch_to: claude
-    message_contains: ["51", "人工反馈"]
+    message_contains: ["51", "进一步结合这篇文章的实践经验，优化你的方案"]
 
 - id: J03
   name: "综合判断：pane 显示 Claude 已完成 → 不重新派发，修正状态"
