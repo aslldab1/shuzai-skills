@@ -1,0 +1,49 @@
+# scenarios_session_recovery.yaml
+# 对应 refs/session-recovery.md
+# 覆盖：stale in-progress 自愈（有分支恢复、无分支重置）
+
+- id: ST01
+  name: "Stale 自愈：in-progress + Codex 空闲 + 无 PR + 有对应分支 → 标记恢复"
+  issues:
+    - number: 42
+      label: in-progress
+      owner_label: owner/codex
+  open_prs: []
+  existing_branches: ["issue-42"]
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    stale_recovery: resume
+    step3_action: none
+    dispatch_to: none
+
+- id: ST02
+  name: "Stale 自愈：in-progress + Codex 空闲 + 无 PR + 无分支 → 重置为 pending"
+  issues:
+    - number: 42
+      label: in-progress
+      owner_label: owner/codex
+  open_prs: []
+  existing_branches: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    stale_recovery: reset
+    step1_label_changes: ["in-progress->pending"]
+    step3_action: task-dispatch
+    dispatch_to: codex
+
+- id: ST03
+  name: "Stale 检测不误触：Codex 忙碌中，不触发自愈"
+  issues:
+    - number: 42
+      label: in-progress
+      owner_label: owner/codex
+  open_prs: []
+  existing_branches: []
+  pane_claude: idle
+  pane_codex: busy
+  expect:
+    stale_recovery: none
+    step3_action: none
+    dispatch_to: none

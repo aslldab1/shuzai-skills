@@ -1,0 +1,124 @@
+# scenarios_routing.yaml
+# 对应 SKILL.md — Step 2/3 优先级逻辑
+# 覆盖：优先级顺序、忙碌跳过、双侧同时派发、最小编号、全部完成
+
+- id: C04
+  name: "Step 2-P5：有 pending 无 owner 的 Issue，Claude 空闲 → 路由"
+  issues:
+    - number: 42
+      label: pending
+      owner_label: null
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step2_action: route-owner
+    dispatch_to: claude
+    message_contains: ["42"]
+
+- id: C05
+  name: "Step 2 优先级：同时有 needs-review 和 pending，应优先处理 needs-review"
+  issues:
+    - number: 40
+      label: needs-review
+      owner_label: owner/codex
+    - number: 42
+      label: pending
+      owner_label: owner/claude
+  open_prs:
+    - number: 10
+      body: "related to #40"
+      review_state: none
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step2_action: review-and-merge
+    dispatch_to: claude
+    message_contains: ["review", "40"]
+
+- id: C06
+  name: "Step 2 跳过：Claude 忙碌"
+  issues:
+    - number: 42
+      label: needs-review
+      owner_label: owner/codex
+  open_prs:
+    - number: 10
+      body: "related to #42"
+      review_state: none
+  pane_claude: busy
+  pane_codex: idle
+  expect:
+    step2_action: none
+    dispatch_to: none
+
+- id: D03
+  name: "Step 3 跳过：Codex 忙碌"
+  issues:
+    - number: 42
+      label: pending
+      owner_label: owner/codex
+  open_prs: []
+  pane_claude: idle
+  pane_codex: busy
+  expect:
+    step3_action: none
+
+- id: B01
+  name: "两侧同时派发：Claude 有 needs-review，Codex 有 pending/codex，两者均空闲"
+  issues:
+    - number: 40
+      label: needs-review
+      owner_label: owner/codex
+    - number: 42
+      label: pending
+      owner_label: owner/codex
+  open_prs:
+    - number: 10
+      body: "related to #40"
+      review_state: none
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step2_action: review-and-merge
+    step3_action: task-dispatch
+    dispatch_to: both
+
+- id: P01
+  name: "多个 pending/codex Issue：取编号最小的一条"
+  issues:
+    - number: 42
+      label: pending
+      owner_label: owner/codex
+    - number: 38
+      label: pending
+      owner_label: owner/codex
+    - number: 50
+      label: pending
+      owner_label: owner/codex
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step3_action: task-dispatch
+    dispatch_to: codex
+    message_contains: ["38"]
+
+- id: E01
+  name: "全部 verified + 无 pending → 无派发动作（下轮通知 Feishu）"
+  issues:
+    - number: 40
+      label: verified
+      owner_label: owner/codex
+    - number: 42
+      label: verified
+      owner_label: owner/claude
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  memory:
+    all_verified_notified_at: null
+  expect:
+    step2_action: none
+    step3_action: none
+    dispatch_to: none

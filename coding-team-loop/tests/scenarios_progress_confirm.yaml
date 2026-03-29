@@ -1,0 +1,173 @@
+# scenarios_progress_confirm.yaml
+# 对应 refs/progress-confirm.md
+# 覆盖：完成信号检测、stale 20分钟触发进度确认、重复发送防护
+
+# ── 完成信号检测 ──────────────────────────────────────────────────────
+
+- id: CS01
+  name: "完成信号：CODEX 写【完成】评论，in-progress+owner/codex → needs-review"
+  issues:
+    - number: 42
+      label: in-progress
+      owner_label: owner/codex
+      comments:
+        - body: "【OPENCLAW】已将此任务派发给 @codex，开始执行。"
+          createdAt: "2026-03-29T10:00:00Z"
+        - body: "【CODEX】【完成】PR #10 related to #42"
+          createdAt: "2026-03-29T10:15:00Z"
+  open_prs:
+    - number: 10
+      body: "related to #42"
+      review_state: none
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step1_label_changes: ["in-progress->needs-review"]
+    step2_action: review-and-merge
+    dispatch_to: claude
+
+- id: CS02
+  name: "完成信号：CLAUDE 写【完成】评论，in-progress+owner/claude → verifying+owner/shuzai"
+  issues:
+    - number: 42
+      label: in-progress
+      owner_label: owner/claude
+      comments:
+        - body: "【OPENCLAW】已将此任务派发给 @claude，开始执行。"
+          createdAt: "2026-03-29T10:00:00Z"
+        - body: "【CLAUDE】【完成】PR #10 related to #42"
+          createdAt: "2026-03-29T10:15:00Z"
+  open_prs:
+    - number: 10
+      body: "related to #42"
+      review_state: none
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step1_label_changes: ["in-progress->verifying", "owner/claude->owner/shuzai"]
+
+- id: CS03
+  name: "完成信号：CLAUDE 写无 PR 的纯文档完成信号 → verifying+owner/shuzai"
+  issues:
+    - number: 42
+      label: in-progress
+      owner_label: owner/claude
+      comments:
+        - body: "【OPENCLAW】已将此任务派发给 @claude，开始执行。"
+          createdAt: "2026-03-29T10:00:00Z"
+        - body: "【CLAUDE】【完成】无 PR，产出已在 Issue 评论中"
+          createdAt: "2026-03-29T10:10:00Z"
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step1_label_changes: ["in-progress->verifying", "owner/claude->owner/shuzai"]
+
+- id: CS04
+  name: "PR 存在但无【完成】信号 → 不自动推进状态（验证新逻辑）"
+  issues:
+    - number: 42
+      label: in-progress
+      owner_label: owner/codex
+      comments:
+        - body: "【OPENCLAW】已将此任务派发给 @codex，开始执行。"
+          createdAt: "2026-03-29T10:00:00Z"
+  open_prs:
+    - number: 10
+      body: "related to #42"
+      review_state: none
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step1_label_changes: []   # PR 存在但无完成信号，不推进
+
+# ── 进度确认触发 ──────────────────────────────────────────────────────
+
+- id: PC01
+  name: "Stale 20分钟：in-progress+owner/claude，worker 空闲 → 发进度确认消息"
+  issues:
+    - number: 42
+      label: in-progress
+      owner_label: owner/claude
+      comments:
+        - body: "【OPENCLAW】已将此任务派发给 @claude，开始执行。"
+          createdAt: "2026-03-29T10:00:00Z"
+      last_activity_minutes_ago: 25   # 超过 20 分钟
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step2_action: progress-confirm
+    dispatch_to: claude
+    message_contains: ["进度确认", "42"]
+
+- id: PC02
+  name: "Stale 20分钟：in-progress+owner/codex，worker 空闲 → 发进度确认消息"
+  issues:
+    - number: 42
+      label: in-progress
+      owner_label: owner/codex
+      comments:
+        - body: "【OPENCLAW】已将此任务派发给 @codex，开始执行。"
+          createdAt: "2026-03-29T10:00:00Z"
+      last_activity_minutes_ago: 25
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step3_action: progress-confirm
+    dispatch_to: codex
+    message_contains: ["进度确认", "42"]
+
+- id: PC03
+  name: "Stale 20分钟但 worker 仍在忙碌 → 不发确认消息"
+  issues:
+    - number: 42
+      label: in-progress
+      owner_label: owner/claude
+      last_activity_minutes_ago: 25
+  open_prs: []
+  pane_claude: busy
+  pane_codex: idle
+  expect:
+    step2_action: none
+    dispatch_to: none
+
+- id: PC04
+  name: "已发过进度确认且未回复 → 不重复发送"
+  issues:
+    - number: 42
+      label: in-progress
+      owner_label: owner/claude
+      comments:
+        - body: "【OPENCLAW】已将此任务派发给 @claude，开始执行。"
+          createdAt: "2026-03-29T10:00:00Z"
+        - body: "【OPENCLAW】【进度确认】\nIssue #42：...\n距上次活动已超过 20 分钟..."
+          createdAt: "2026-03-29T10:25:00Z"
+      last_activity_minutes_ago: 35
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step2_action: none   # 已有未回复的确认消息，不重发
+    dispatch_to: none
+
+- id: PC05
+  name: "worker 回复进度说明（未完成）→ 继续等待，不推进状态"
+  issues:
+    - number: 42
+      label: in-progress
+      owner_label: owner/claude
+      comments:
+        - body: "【OPENCLAW】【进度确认】Issue #42..."
+          createdAt: "2026-03-29T10:25:00Z"
+        - body: "【CLAUDE】仍在进行中，正在处理第三步，预计 10 分钟完成"
+          createdAt: "2026-03-29T10:30:00Z"
+      last_activity_minutes_ago: 5
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step1_label_changes: []
+    step2_action: none   # 继续等待
+    dispatch_to: none

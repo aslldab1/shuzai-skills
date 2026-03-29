@@ -1,0 +1,131 @@
+# scenarios_task_dispatch.yaml
+# 对应 refs/task-dispatch.md
+# 覆盖：派发判断（综合评论历史 + pane 内容）、消息格式选择
+
+- id: C03
+  name: "Step 2-P4：有 pending+owner/claude Issue，Claude 空闲 → 派发开发任务"
+  issues:
+    - number: 42
+      label: pending
+      owner_label: owner/claude
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step2_action: task-dispatch
+    dispatch_to: claude
+    message_contains: ["42"]
+
+- id: D02
+  name: "Step 3-P3：有 pending+owner/codex Issue，Codex 空闲 → 派发开发任务"
+  issues:
+    - number: 42
+      label: pending
+      owner_label: owner/codex
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step3_action: task-dispatch
+    dispatch_to: codex
+    message_contains: ["42"]
+
+- id: K03
+  name: "Codex Task Brief：有 pending+owner/codex，Codex 空闲 → 正常派发"
+  issues:
+    - number: 42
+      label: pending
+      owner_label: owner/codex
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step3_action: task-dispatch
+    dispatch_to: codex
+    message_contains: ["42"]
+
+- id: J01
+  name: "综合判断：pending+owner/claude，无 HUMAN 反馈 → 标准格式派发"
+  issues:
+    - number: 51
+      label: pending
+      owner_label: owner/claude
+      comments:
+        - body: "【OPENCLAW】已将此任务派发给 @claude，开始执行。\nlabel: in-progress · 派发时间：2026-03-28 14:02"
+          createdAt: "2026-03-28T06:02:00Z"
+        - body: "【CLAUDE】方案概要：已完成第一版方案，详见 docs/tasks/..."
+          createdAt: "2026-03-28T06:05:00Z"
+        - body: "【OPENCLAW】PR #56 创建，推进为 verifying。"
+          createdAt: "2026-03-28T06:10:00Z"
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step2_action: task-dispatch
+    dispatch_to: claude
+    message_contains: ["51"]
+
+- id: J02
+  name: "综合判断：pending+owner/claude，有 HUMAN 反馈（最近派发后）→ 带反馈格式派发"
+  issues:
+    - number: 51
+      label: pending
+      owner_label: owner/claude
+      comments:
+        - body: "【OPENCLAW】已将此任务派发给 @claude，开始执行。"
+          createdAt: "2026-03-28T06:02:00Z"
+        - body: "【CLAUDE】方案概要：完成第一版方案"
+          createdAt: "2026-03-28T06:05:00Z"
+        - body: "【OPENCLAW】推进为 verifying。"
+          createdAt: "2026-03-28T06:10:00Z"
+        - body: "进一步结合这篇文章的实践经验，优化你的方案。"
+          createdAt: "2026-03-28T06:35:00Z"
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step2_action: task-dispatch
+    dispatch_to: claude
+    message_contains: ["51", "人工反馈"]
+
+- id: J03
+  name: "综合判断：pane 显示 Claude 已完成 → 不重新派发，修正状态"
+  issues:
+    - number: 51
+      label: pending
+      owner_label: owner/claude
+      comments:
+        - body: "【OPENCLAW】已将此任务派发给 @claude，开始执行。"
+          createdAt: "2026-03-28T06:02:00Z"
+        - body: "方案修订完成，PR #56 已推送。"
+          createdAt: "2026-03-29T05:08:00Z"
+  open_prs: []
+  pane_claude_content: |
+    ⏺ 方案已在上一轮完成全部三步，无需重复执行。
+    ❯
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step2_action: none
+    dispatch_to: none
+
+- id: J04
+  name: "综合判断：Claude 回复无【CLAUDE】前缀 → 被识别为 HUMAN 反馈，触发带反馈格式派发"
+  issues:
+    - number: 51
+      label: pending
+      owner_label: owner/claude
+      comments:
+        - body: "【OPENCLAW】已将此任务派发给 @claude，开始执行。"
+          createdAt: "2026-03-28T06:02:00Z"
+        - body: "进一步结合这篇文章的实践经验，优化你的方案。"
+          createdAt: "2026-03-28T06:35:00Z"
+        - body: "## 方案修订：整合实践洞察（无前缀，系统无法识别为 Claude 回复）"
+          createdAt: "2026-03-29T05:08:00Z"
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step2_action: task-dispatch
+    dispatch_to: claude
+    message_contains: ["51", "人工反馈", "进一步结合这篇文章"]

@@ -1,0 +1,65 @@
+# scenarios_owner_shuzai.yaml
+# 对应 SKILL.md — owner/shuzai 处理段
+# 覆盖：最新评论身份判断、人工反馈打回
+
+- id: SH01
+  name: "owner/shuzai：无评论 → 跳过，继续等 HUMAN"
+  issues:
+    - number: 42
+      label: verifying
+      owner_label: owner/shuzai
+      latest_comment: null
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step2_action: none
+    step3_action: none
+    dispatch_to: none
+
+- id: SH02
+  name: "owner/shuzai：最新评论是【OPENCLAW】→ 跳过，等 HUMAN 再次操作"
+  issues:
+    - number: 42
+      label: verifying
+      owner_label: owner/shuzai
+      latest_comment: "【OPENCLAW】已将此任务重新派发给 Claude"
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step2_action: none
+    step3_action: none
+    dispatch_to: none
+
+- id: SH03
+  name: "owner/shuzai：最新评论是【CLAUDE】→ 跳过，等 HUMAN 再次操作"
+  issues:
+    - number: 42
+      label: verifying
+      owner_label: owner/shuzai
+      latest_comment: "【CLAUDE】验收报告：功能正常"
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step2_action: none
+    step3_action: none
+    dispatch_to: none
+
+- id: SH04
+  name: "owner/shuzai：最新评论是 HUMAN → 打回给上一个 owner（previous_owner=owner/claude）"
+  issues:
+    - number: 42
+      label: verifying
+      owner_label: owner/shuzai
+      latest_comment: "方案方向有问题，请把接入方式改成 MCP 而不是 SDK"
+      previous_owner: owner/claude
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step1_label_changes: ["verifying->pending", "owner/shuzai->owner/claude"]
+    step2_action: task-dispatch
+    dispatch_to: claude
+    message_contains: ["42"]

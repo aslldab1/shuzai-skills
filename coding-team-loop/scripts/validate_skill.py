@@ -25,9 +25,18 @@ OPENCLAW_BIN  = "/Users/lin/workspace/AI/git/openclaw/dist/index.js"
 SESSION_ID    = f"skill-validator-{int(time.time())}"
 AGENT_TIMEOUT = 120  # 秒
 
-SKILL_DIR = Path(__file__).parent.parent
-SKILL_MD  = SKILL_DIR / "SKILL.md"
-SCENARIOS = SKILL_DIR / "tests" / "scenarios.yaml"
+SKILL_DIR     = Path(__file__).parent.parent
+SKILL_MD      = SKILL_DIR / "SKILL.md"
+SCENARIOS_DIR = SKILL_DIR / "tests"
+
+
+def load_all_scenarios():
+    """自动发现 tests/scenarios_*.yaml，按文件名排序后合并。"""
+    files = sorted(SCENARIOS_DIR.glob("scenarios_*.yaml"))
+    all_scenarios = []
+    for f in files:
+        all_scenarios.extend(yaml.safe_load(f.read_text(encoding="utf-8")) or [])
+    return all_scenarios
 
 # ── 颜色 ───────────────────────────────────────────────────────────────────────
 GREEN  = "\033[32m"
@@ -216,7 +225,7 @@ def main():
     args = parser.parse_args()
 
     skill_content = SKILL_MD.read_text(encoding="utf-8")
-    scenarios     = yaml.safe_load(SCENARIOS.read_text(encoding="utf-8"))
+    scenarios     = load_all_scenarios()
 
     if args.scenario:
         scenarios = [s for s in scenarios if s.get("id") == args.scenario]
