@@ -153,32 +153,7 @@ bash scripts/busy_check.sh {codex_pane}
 
 ### owner/shuzai 处理（Step 1 完成后、Step 2 之前）
 
-扫描所有含 `owner/shuzai` 的 open Issue，对每条执行以下判断：
-
-**1. 检查最新评论是谁写的**
-
-```
-gh issue view {N} --json comments --jq '.comments | last'
-```
-
-| 最新评论情况 | 动作 |
-|------------|------|
-| 无评论 | 跳过，继续等 HUMAN |
-| 最新评论以 `【OPENCLAW】` 或 `【CLAUDE】` 开头 | 跳过（系统已回复，等 HUMAN 再次操作）|
-| 最新评论是 HUMAN 写的（无系统前缀） | 视为新反馈，执行下方"处理人工反馈"流程 |
-
-**2. 处理人工反馈**
-
-1. 从该 Issue 的评论历史中找到最近一条记录了"owner 切换为 owner/shuzai"的 【OPENCLAW】 评论，提取切换前的 owner（即上一个负责人）
-2. Issue label：`verifying → pending`，owner 恢复为上一个 owner
-3. 留 【OPENCLAW】 评论，记录已接收反馈并重置，引用 HUMAN 的评论
-4. 下轮派发时，将 HUMAN 的评论原文作为补充上下文带入 Task Brief
-
-**3. Feishu 通知**
-
-- 若该 Issue 本轮状态发生变化（刚从 in-progress 转入 owner/shuzai）→ 发通知
-- 若状态未变化且 hash 不变 → 不重复通知
-- `owner/shuzai` 的 Issue **不进入 Step 2 / Step 3 的派发逻辑**
+→ 参考：refs/human-handoff.md
 
 ### 全局异常（两侧均无动作时）
 
