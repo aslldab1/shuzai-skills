@@ -71,7 +71,7 @@ Codex 开始工作前必须设置 `GH_TOKEN` 为 codex-bot 的 token。验证：
 - **对每个 `pending` + `owner/claude` 或 `owner/codex` 的 Issue，额外读取最近 10 条评论（含 body 和 createdAt），供 Step 2/3 判断使用**
 
 **GitHub PR：**
-- 扫描所有 open PR 的 body，通过 `related to #N` / `closes #N` / `fixes #N` 识别关联 Issue
+- 扫描所有 open PR 的 body，通过 `related to #N` / `closes #N` / `fixes #N` / `refs #N` 识别关联 Issue
   - 关联 Issue label=`in-progress` + `owner/codex` → 自动推进为 `needs-review`，留 【OPENCLAW】 评论
   - 关联 Issue label=`in-progress` + `owner/claude` → 自动推进为 `verifying`，同时将 owner 改为 `owner/shuzai`，发 Feishu 通知 HUMAN，留 【OPENCLAW】 评论
 - 若 PR 最新提交时间 > 最新 review 时间 → 自动将 label 从 `changes-requested` 更新为 `needs-review`

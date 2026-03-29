@@ -44,13 +44,14 @@ Issue #{N}：{Issue标题}
 {Issue 正文中的验收条件}
 
 请按以下步骤执行：
-① 在 Issue 评论中回复方案概要（2~3 句，不需要展开细节）
+① 在 `issue-{N}` 分支上工作（从 main 创建，若已存在则直接使用）
+② 在 Issue 评论中回复方案概要（2~3 句，不需要展开细节）
    **必须以 【CLAUDE】 开头，例如：`【CLAUDE】方案概要：…`**
-② 将详细技术方案输出到仓库文档（docs/tasks/issue-{N}-{slug}.md）
+③ 将详细技术方案输出到仓库文档（docs/tasks/issue-{N}-{slug}.md）
    Issue 评论中贴带分支的直链，格式：
    https://github.com/{owner}/{repo}/blob/{branch}/docs/tasks/issue-{N}-{slug}.md
-   （不要用 main，用当前工作分支名，确保链接在 PR merge 前就能直接访问）
-③ 开始实现
+④ 完成实现后，push 分支并开 PR
+   PR body 中必须包含 `related to #{N}`（不要用 closes/fixes/refs，避免歧义）
 ```
 
 **带人工反馈格式（有 HUMAN 评论时必须使用）：**
@@ -69,11 +70,12 @@ Issue #{N}：{Issue标题}
 {HUMAN 最新评论原文，完整引用}
 
 请按以下步骤执行：
-① 在 Issue 评论中回复针对反馈的修改方案（2~3 句）
-   **必须以 【CLAUDE】 开头，例如：**
-   `【CLAUDE】方案修订：…`
-② 更新方案文档（若已存在 docs/tasks/issue-{N}-{slug}.md 则在原文件修订）
-③ 按修改后方案执行
+① 在 `issue-{N}` 分支上工作（从 main 创建，若已存在则直接使用）
+② 在 Issue 评论中回复针对反馈的修改方案（2~3 句）
+   **必须以 【CLAUDE】 开头，例如：`【CLAUDE】方案修订：…`**
+③ 更新方案文档（若已存在 docs/tasks/issue-{N}-{slug}.md 则在原文件修订）
+④ 完成后，push 分支并开 PR
+   PR body 中必须包含 `related to #{N}`（不要用 closes/fixes/refs，避免歧义）
 ```
 
 ## Codex 开发任务消息格式
