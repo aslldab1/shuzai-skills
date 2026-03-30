@@ -32,6 +32,8 @@ PR 已合并，请验证此功能的主干使用流程是否正常。
 完成后请回复：
 - 通过：回复【验收通过】并简述验证内容
 - 有问题：列出具体问题描述（每条一行）
+
+⚠️ 只需在 Issue 评论中回复验收结论。**禁止执行 gh issue edit / gh issue close / gh pr merge**——所有状态推进由 openclaw 自动处理。
 ```
 
 ### 父 Issue 最终验收（有子任务的 HUMAN Issue）
@@ -56,6 +58,8 @@ Issue #{N}：{Issue标题}
 完成后请回复：
 - 通过：回复【验收通过】并简述 Playwright 验证内容
 - 有问题：列出具体问题描述（每条一行）
+
+⚠️ 只需在 Issue 评论中回复验收结论。**禁止执行 gh issue edit / gh issue close / gh pr merge**——所有状态推进由 openclaw 自动处理。
 ```
 
 ## openclaw 后续动作
