@@ -22,6 +22,8 @@ Issue #{N}：{Issue标题}
 如已完成，请补写完成信号：
 【CLAUDE】【完成】PR #{pr_number} related to #{N}
 （纯文档/设计任务无 PR 时：【CLAUDE】【完成】无 PR，产出已在 Issue 评论中）
+
+⚠️ 只需在 Issue 评论中回复进度或补写完成信号。禁止执行 gh issue edit / gh issue close —— 状态推进由 openclaw 自动处理。
 ```
 
 ## openclaw 后续动作

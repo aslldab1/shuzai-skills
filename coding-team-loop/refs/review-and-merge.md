@@ -40,6 +40,8 @@ EOF
 )"
 
 完成标准：GitHub 上可查到 review 或 comment 记录。
+
+⚠️ 只提交 review，禁止执行 gh pr merge / gh issue edit / gh issue close —— merge 和状态推进由 openclaw 自动处理。
 ```
 
 ## openclaw 后续动作

@@ -91,6 +91,23 @@ Codex 创建分支必须使用 `issue-{N}` 格式，便于 openclaw 自愈时检
 
 Codex 开始工作前必须设置 `GH_TOKEN` 为 codex-bot 的 token。验证：`gh api user --jq .login`
 
+### Worker 权限边界（严格执行）
+
+Worker（Claude / Codex）在执行任务时，**只允许以下 GitHub 写操作**：
+- `gh issue comment` — 写评论（进度、方案、完成信号）
+- `gh pr create` — 创建 PR
+- `gh pr review` — 提交 review（仅 Claude）
+- `gh pr comment` — 写 PR 评论
+- `gh issue create` — 创建子 Issue（仅 Claude 拆解任务时）
+
+**以下操作严格禁止，只能由 openclaw 执行：**
+- `gh issue edit`（修改 label、title、body、assignee 等）
+- `gh issue close` / `gh issue reopen`
+- `gh pr merge`
+- 任何直接修改 Issue/PR 状态的命令
+
+所有状态推进由 openclaw 根据完成信号自动处理。派发消息中的 ⚠️ 禁令是对此规则的重申。
+
 ---
 
 ## 每轮执行（固定 3 步）

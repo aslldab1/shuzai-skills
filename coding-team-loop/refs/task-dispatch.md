@@ -54,6 +54,8 @@ Issue #{N}：{Issue标题}
 ⑤ 在 Issue 写完成信号（这是 openclaw 推进状态的唯一依据）：
    有 PR：`【CLAUDE】【完成】PR #{pr_number} related to #{N}`
    无 PR（纯文档/设计）：`【CLAUDE】【完成】无 PR，产出已在 Issue 评论中`
+
+⚠️ 禁止执行 gh issue edit / gh issue close / gh pr merge —— 所有状态推进由 openclaw 自动处理。
 ```
 
 **带人工反馈格式（有 HUMAN 评论时必须使用）：**
@@ -78,6 +80,8 @@ Issue #{N}：{Issue标题}
 ③ 更新方案文档（若已存在 docs/tasks/issue-{N}-{slug}.md 则在原文件修订）
 ④ 完成后，push 分支并开 PR，PR body 中包含 `related to #{N}`
 ⑤ 在 Issue 写完成信号：`【CLAUDE】【完成】PR #{pr_number} related to #{N}`
+
+⚠️ 禁止执行 gh issue edit / gh issue close / gh pr merge —— 所有状态推进由 openclaw 自动处理。
 ```
 
 ## Codex 开发任务消息格式
@@ -98,6 +102,8 @@ Issue #{N}：{Issue标题}
 1. push 分支并开 PR，PR body 中包含 "related to #{N}"
 2. 在 Issue 写完成信号：`【CODEX】【完成】PR #{pr_number} related to #{N}`
    （这是 openclaw 推进状态的唯一依据）
+
+⚠️ 禁止执行 gh issue edit / gh issue close / gh pr merge —— 所有状态推进由 openclaw 自动处理。
 ```
 
 ## 派发动作（必须严格按序）
@@ -161,6 +167,8 @@ gh issue create -R {repo} \
 > 父 Issue 的完成由 openclaw 自动处理：所有子 Issue 关闭后，openclaw 通过 Step 1.6 自动触发最终验收（Step 2-P2），
 > Claude 只需在收到最终验收请求时回复【验收通过】即可。**不要主动写 `【CLAUDE】【完成】`。**
 
+> ⚠️ **Claude 在拆分子任务时，禁止对父 Issue 执行 `gh issue edit` / `gh issue close`。** 只允许 `gh issue comment` 和 `gh issue create`。
+
 > ⚠️ QUEUE.md 是 Codex 的内部工作文件，**不是 openclaw 的派发依据**。
 > openclaw 只通过 GitHub Issue label（`pending + owner/codex`）发现并派发 Codex 任务。
 > 只写 QUEUE.md 会导致 Codex 任务永远不会被自动派发。
@@ -174,4 +182,6 @@ Step 1 检测到 stale in-progress 且有对应分支时，改用恢复消息：
 Issue #{N}：{Issue标题}
 之前因中断暂停，已有进度在分支 {branch_name}。
 请检查分支当前状态后继续执行，不要从头开始。
+
+⚠️ 禁止执行 gh issue edit / gh issue close / gh pr merge —— 所有状态推进由 openclaw 自动处理。
 ```
