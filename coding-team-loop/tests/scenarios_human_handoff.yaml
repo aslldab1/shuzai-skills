@@ -1,8 +1,9 @@
-# scenarios_owner_shuzai.yaml
+# scenarios_human_handoff.yaml
 # 对应 SKILL.md — owner/shuzai 处理段
 # 覆盖：最新评论身份判断、人工反馈打回
 
 - id: SH01
+  suite: module:human-handoff
   name: "owner/shuzai：无评论 → 跳过，继续等 HUMAN"
   issues:
     - number: 42
@@ -18,6 +19,7 @@
     dispatch_to: none
 
 - id: SH02
+  suite: module:human-handoff
   name: "owner/shuzai：最新评论是【OPENCLAW】→ 跳过，等 HUMAN 再次操作"
   issues:
     - number: 42
@@ -33,6 +35,7 @@
     dispatch_to: none
 
 - id: SH03
+  suite: module:human-handoff
   name: "owner/shuzai：最新评论是【CLAUDE】→ 跳过，等 HUMAN 再次操作"
   issues:
     - number: 42
@@ -48,6 +51,7 @@
     dispatch_to: none
 
 - id: SH04
+  suite: core
   name: "owner/shuzai：最新评论是 HUMAN → 打回给上一个 owner（previous_owner=owner/claude）"
   issues:
     - number: 42

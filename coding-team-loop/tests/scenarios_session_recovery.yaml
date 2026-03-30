@@ -3,7 +3,8 @@
 # 覆盖：stale in-progress 自愈（20分钟无活动触发进度确认）
 
 - id: ST01
-  name: "Stale 自愈：in-progress + 20分钟无活动 + worker 空闲 + 有对应分支 → 发进度确认"
+  suite: module:session-recovery
+  name: "Stale 自愈：in-progress + 20分钟无活动 + worker 空闲 → 发进度确认"
   issues:
     - number: 42
       label: in-progress
@@ -13,7 +14,6 @@
           createdAt: "2026-03-29T10:00:00Z"
       last_activity_minutes_ago: 25
   open_prs: []
-  existing_branches: ["issue-42"]
   pane_claude: idle
   pane_codex: idle
   expect:
@@ -22,25 +22,7 @@
     message_contains: ["42"]
 
 - id: ST02
-  name: "Stale 自愈：in-progress + 20分钟无活动 + worker 空闲 + 无分支 → 发进度确认"
-  issues:
-    - number: 42
-      label: in-progress
-      owner_label: owner/codex
-      comments:
-        - body: "【OPENCLAW】已将此任务派发给 @codex，开始执行。"
-          createdAt: "2026-03-29T10:00:00Z"
-      last_activity_minutes_ago: 25
-  open_prs: []
-  existing_branches: []
-  pane_claude: idle
-  pane_codex: idle
-  expect:
-    step3_action: progress-confirm
-    dispatch_to: codex
-    message_contains: ["42"]
-
-- id: ST03
+  suite: module:session-recovery
   name: "Stale 检测不误触：Codex 忙碌中，不触发进度确认"
   issues:
     - number: 42

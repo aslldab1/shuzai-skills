@@ -6,9 +6,12 @@ coding-team-loop SKILL.md 验证器
 对话历史存储在 OpenClaw session，可在控制台查看。
 
 用法：
-  python3 scripts/validate_skill.py              # 跑全部场景
-  python3 scripts/validate_skill.py --scenario S01
-  python3 scripts/validate_skill.py --verbose    # 显示 OpenClaw 原始回复
+  python3 scripts/validate_skill.py                    # 跑全部场景（默认 4 并行）
+  python3 scripts/validate_skill.py --suite core       # 只跑主干用例
+  python3 scripts/validate_skill.py --suite task-dispatch  # 只跑 task-dispatch 模块
+  python3 scripts/validate_skill.py --scenario CS01
+  python3 scripts/validate_skill.py --verbose          # 显示 OpenClaw 原始回复
+  python3 scripts/validate_skill.py --concurrency 8    # 自定义并行度
 """
 
 import sys
@@ -16,6 +19,8 @@ import json
 import time
 import argparse
 import subprocess
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import yaml
@@ -62,8 +67,6 @@ RED    = "\033[31m"
 RESET  = "\033[0m"
 BOLD   = "\033[1m"
 
-def ok(msg):   print(f"{GREEN}  ✓ {msg}{RESET}")
-def fail(msg): print(f"{RED}  ✗ {msg}{RESET}")
 
 # ── Prompt ─────────────────────────────────────────────────────────────────────
 PROMPT_TEMPLATE = """\
@@ -100,7 +103,7 @@ PROMPT_TEMPLATE = """\
 
 def build_prompt(skill_content: str, scenario: dict) -> str:
     input_fields = {k: v for k, v in scenario.items()
-                    if k not in ("id", "name", "expect", "context")}
+                    if k not in ("id", "name", "expect", "context", "suite")}
     return PROMPT_TEMPLATE.format(
         skill_content=skill_content,
         scenario_json=json.dumps(input_fields, ensure_ascii=False, indent=2),
@@ -169,28 +172,13 @@ def extract_json(text: str) -> dict:
     raise ValueError(f"回复中未找到 JSON：{text[:200]}")
 
 
-# ── 字段对比 ───────────────────────────────────────────────────────────────────
-def check_field(label: str, actual, expected, verbose: bool) -> bool:
-    if expected is None:
-        return True
 
-    if isinstance(actual, list):
-        actual_str = " ".join(str(x) for x in actual)
-    elif actual is None:
-        actual_str = "null"
-    else:
-        actual_str = str(actual)
+# ── 线程安全输出 ──────────────────────────────────────────────────────────────
+_print_lock = threading.Lock()
 
-    keywords = expected if isinstance(expected, list) else [expected]
-    missing = [kw for kw in keywords if kw not in actual_str]
-
-    if missing:
-        fail(f"{label}: 缺少关键词 {missing}（实际：{actual}）")
-        return False
-
-    if verbose:
-        ok(f"{label}: {actual}")
-    return True
+def _print_sync(*args, **kwargs):
+    with _print_lock:
+        print(*args, **kwargs)
 
 
 # ── 单场景评估 ─────────────────────────────────────────────────────────────────
@@ -200,49 +188,80 @@ def evaluate_scenario(skill_content: str, scenario: dict,
     name   = scenario.get("name", "")
     expect = scenario.get("expect", {})
 
-    print(f"\n{BOLD}[{sid}]{RESET} {name}")
+    # 每个场景使用独立 session，避免并行时上下文污染
+    scenario_session = f"{session_id}-{sid}"
+
+    lines: list[str] = []
+    lines.append(f"\n{BOLD}[{sid}]{RESET} {name}")
 
     prompt = build_prompt(skill_content, scenario)
 
     try:
-        reply = call_openclaw(prompt, session_id)
+        reply = call_openclaw(prompt, scenario_session)
     except subprocess.TimeoutExpired:
-        fail(f"超时（>{AGENT_TIMEOUT}s）")
+        lines.append(f"{RED}  ✗ 超时（>{AGENT_TIMEOUT}s）{RESET}")
+        _print_sync("\n".join(lines))
         return False
     except RuntimeError as e:
-        fail(str(e))
+        lines.append(f"{RED}  ✗ {e}{RESET}")
+        _print_sync("\n".join(lines))
         return False
 
     if verbose:
         preview = reply[:400] + ("..." if len(reply) > 400 else "")
-        print(f"       OpenClaw 回复：{preview}")
+        lines.append(f"       OpenClaw 回复：{preview}")
 
     try:
         result = extract_json(reply)
     except (ValueError, json.JSONDecodeError) as e:
-        fail(f"回复不是合法 JSON：{e}")
+        lines.append(f"{RED}  ✗ 回复不是合法 JSON：{e}{RESET}")
+        _print_sync("\n".join(lines))
         return False
 
     passed = True
-    passed &= check_field("step2_action",      result.get("step2_action"),      expect.get("step2_action"),      verbose)
-    passed &= check_field("step3_action",      result.get("step3_action"),      expect.get("step3_action"),      verbose)
-    passed &= check_field("dispatch_to",       result.get("dispatch_to"),       expect.get("dispatch_to"),       verbose)
-    passed &= check_field("message_contains",  result.get("message_contains"),  expect.get("message_contains"),  verbose)
-    passed &= check_field("step1_label_changes",   result.get("step1_label_changes"),   expect.get("step1_label_changes"),   verbose)
-    passed &= check_field("handoff_label_changes", result.get("handoff_label_changes"), expect.get("handoff_label_changes"), verbose)
-    passed &= check_field("stale_recovery",        result.get("stale_recovery"),        expect.get("stale_recovery"),        verbose)
+    for field_name in ["step2_action", "step3_action", "dispatch_to",
+                       "message_contains", "step1_label_changes",
+                       "handoff_label_changes", "stale_recovery"]:
+        actual_val = result.get(field_name)
+        expect_val = expect.get(field_name)
+        if expect_val is None:
+            continue
+
+        if isinstance(actual_val, list):
+            actual_str = " ".join(str(x) for x in actual_val)
+        elif actual_val is None:
+            actual_str = "null"
+        else:
+            actual_str = str(actual_val)
+
+        keywords = expect_val if isinstance(expect_val, list) else [expect_val]
+        missing = [kw for kw in keywords if kw not in actual_str]
+
+        if missing:
+            lines.append(f"{RED}  ✗ {field_name}: 缺少关键词 {missing}（实际：{actual_val}）{RESET}")
+            passed = False
+        elif verbose:
+            lines.append(f"{GREEN}  ✓ {field_name}: {actual_val}{RESET}")
 
     if passed:
-        ok("PASS")
+        lines.append(f"{GREEN}  ✓ PASS{RESET}")
+
+    _print_sync("\n".join(lines))
     return passed
 
 
 # ── 主流程 ─────────────────────────────────────────────────────────────────────
+DEFAULT_CONCURRENCY = 4
+
+
 def main():
     parser = argparse.ArgumentParser(description="验证 coding-team-loop SKILL.md")
-    parser.add_argument("--scenario", help="只运行指定场景 ID（如 S01）")
+    parser.add_argument("--scenario", help="只运行指定场景 ID（如 CS01）")
+    parser.add_argument("--suite",    help="只运行指定套件（core / module:xxx，如 task-dispatch）")
     parser.add_argument("--file",     help="只运行指定场景文件（如 scenarios_routing.yaml）")
     parser.add_argument("--verbose",  action="store_true", help="显示 OpenClaw 原始回复")
+    parser.add_argument("--concurrency", type=int, default=DEFAULT_CONCURRENCY,
+                        help=f"并行执行的场景数（默认 {DEFAULT_CONCURRENCY}）")
     args = parser.parse_args()
 
     skill_content = load_skill_with_refs()
@@ -262,22 +281,45 @@ def main():
             print(f"{RED}找不到场景 {args.scenario}{RESET}")
             sys.exit(1)
 
-    runnable = [s for s in scenarios if "expect" in s]
+    if args.suite:
+        suite_filter = args.suite
+        # 支持 --suite core 或 --suite task-dispatch（自动补 module: 前缀）
+        if suite_filter != "core" and not suite_filter.startswith("module:"):
+            suite_filter = f"module:{suite_filter}"
+        scenarios = [s for s in scenarios if s.get("suite") == suite_filter]
+        if not scenarios:
+            print(f"{RED}找不到套件 {args.suite} 的场景{RESET}")
+            sys.exit(1)
 
+    runnable = [s for s in scenarios if "expect" in s]
+    concurrency = min(args.concurrency, len(runnable)) if runnable else 1
+
+    suite_label = args.suite or "all"
     print(f"\n{BOLD}coding-team-loop SKILL.md 验证器{RESET}")
     print(f"Session  : {SESSION_ID}")
+    print(f"Suite    : {suite_label}")
     print(f"场景总数 : {len(runnable)}")
-    print(f"（对话记录可在 OpenClaw 控制台 session '{SESSION_ID}' 中查看）")
+    print(f"并行度   : {concurrency}")
+    print(f"（对话记录可在 OpenClaw 控制台 session '{SESSION_ID}-{{ID}}' 中查看）")
 
     passed_count = 0
-    failed_ids   = []
+    failed_ids: list[str] = []
 
-    for scenario in runnable:
-        result = evaluate_scenario(skill_content, scenario, SESSION_ID, args.verbose)
-        if result:
-            passed_count += 1
-        else:
-            failed_ids.append(scenario.get("id", "?"))
+    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+        future_to_sid = {
+            pool.submit(evaluate_scenario, skill_content, s, SESSION_ID, args.verbose): s.get("id", "?")
+            for s in runnable
+        }
+        for future in as_completed(future_to_sid):
+            sid = future_to_sid[future]
+            try:
+                if future.result():
+                    passed_count += 1
+                else:
+                    failed_ids.append(sid)
+            except Exception as e:
+                _print_sync(f"{RED}  ✗ [{sid}] 未捕获异常：{e}{RESET}")
+                failed_ids.append(sid)
 
     total = len(runnable)
     print(f"\n{'─' * 50}")

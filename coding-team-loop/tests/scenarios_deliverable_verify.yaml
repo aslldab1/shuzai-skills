@@ -3,7 +3,8 @@
 # 覆盖：verifying+owner/codex 验收派发
 
 - id: C02
-  name: "Step 2-P3：有 verifying + owner/codex Issue，Claude 空闲 → 派发验收请求"
+  suite: module:deliverable-verify
+  name: "Step 2-P4：有 verifying + owner/codex Issue，Claude 空闲 → 派发验收请求"
   issues:
     - number: 42
       label: verifying

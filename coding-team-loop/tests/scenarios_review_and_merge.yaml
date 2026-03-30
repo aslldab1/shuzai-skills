@@ -3,6 +3,7 @@
 # 覆盖：needs-review 派发、changes-requested 自动推进
 
 - id: C01
+  suite: module:review-and-merge
   name: "Step 2-P1：有 needs-review Issue，Claude 空闲 → 派发 review"
   issues:
     - number: 42
@@ -20,6 +21,7 @@
     message_contains: ["review", "42"]
 
 - id: L02
+  suite: core
   name: "PR commit 时间 > review 时间：自动从 changes-requested 推进为 needs-review"
   issues:
     - number: 42
@@ -40,6 +42,7 @@
     message_contains: ["review"]
 
 - id: L03
+  suite: core
   name: "PR commit 时间 < review 时间：不推进，保持 changes-requested"
   issues:
     - number: 42

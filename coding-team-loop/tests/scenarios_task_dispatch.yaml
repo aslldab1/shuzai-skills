@@ -1,9 +1,10 @@
 # scenarios_task_dispatch.yaml
 # 对应 refs/task-dispatch.md
-# 覆盖：派发判断（综合评论历史 + pane 内容）、消息格式选择
+# 覆盖：派发判断（综合评论历史 + pane 内容）、消息格式选择、原型设计检测
 
 - id: C03
-  name: "Step 2-P4：有 pending+owner/claude Issue，Claude 空闲 → 派发开发任务"
+  suite: core
+  name: "Step 2-P5：有 pending+owner/claude Issue，Claude 空闲 → 派发开发任务"
   issues:
     - number: 42
       label: pending
@@ -16,6 +17,7 @@
     dispatch_to: claude
 
 - id: D02
+  suite: core
   name: "Step 3-P3：有 pending+owner/codex Issue，Codex 空闲 → 派发开发任务"
   issues:
     - number: 42
@@ -28,23 +30,10 @@
     step3_action: task-dispatch
     dispatch_to: codex
 
-- id: K03
-  name: "Codex Task Brief：有 pending+owner/codex，Codex 空闲 → 正常派发"
-  issues:
-    - number: 42
-      label: pending
-      owner_label: owner/codex
-  open_prs: []
-  pane_claude: idle
-  pane_codex: idle
-  expect:
-    step3_action: task-dispatch
-    dispatch_to: codex
-
-# J01 removed: 与 C03 重复（均测 pending+owner/claude 基本派发），
-# J01 的评论历史干扰导致 LLM 综合判断不稳定
+# K03 已删除：与 D02 完全重复（均测 pending+owner/codex 基本派发）
 
 - id: J02
+  suite: module:task-dispatch
   name: "综合判断：pending+owner/claude，有 HUMAN 反馈 → 带反馈格式派发"
   issues:
     - number: 51
@@ -66,17 +55,8 @@
     step2_action: task-dispatch
     dispatch_to: claude
 
-# J03 downgraded: pane 内容综合判断（"已完成"→跳过）无法稳定验证，
-# LLM 优先按 label=pending 规则派发，忽略 pane 上下文。
-# 保留为文档参考但不参与自动验证。
-#
-# - id: J03
-#   name: "综合判断：pane 显示 Claude 已完成 → 不重新派发"
-#   expect:
-#     step2_action: none
-#     dispatch_to: none
-
 - id: J04
+  suite: module:task-dispatch
   name: "综合判断：Claude 回复无【CLAUDE】前缀 → 被识别为 HUMAN 反馈"
   issues:
     - number: 51
@@ -89,6 +69,56 @@
           createdAt: "2026-03-28T06:35:00Z"
         - body: "## 方案修订：整合实践洞察（无前缀，系统无法识别为 Claude 回复）"
           createdAt: "2026-03-29T05:08:00Z"
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step2_action: task-dispatch
+    dispatch_to: claude
+
+- id: J05
+  suite: module:task-dispatch
+  name: "综合判断：Issue 涉及产品原型设计 → 派发消息包含 stitch-prototype 指令（Claude）"
+  issues:
+    - number: 60
+      title: "设计新版订单页面 UI 原型"
+      body: "请为订单管理页面设计 UI 原型，包含列表页和详情页的交互设计。"
+      label: pending
+      owner_label: owner/claude
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step2_action: task-dispatch
+    dispatch_to: claude
+    message_contains: ["stitch-prototype"]
+
+- id: J06
+  suite: module:task-dispatch
+  name: "综合判断：Issue 涉及产品原型设计 → 派发消息包含 stitch-prototype 指令（Codex）"
+  issues:
+    - number: 61
+      title: "实现 wireframe 原型页面"
+      body: "根据需求文档完成 wireframe mockup 设计和前端实现。"
+      label: pending
+      owner_label: owner/codex
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step3_action: task-dispatch
+    dispatch_to: codex
+    message_contains: ["stitch-prototype"]
+
+- id: J07
+  suite: module:task-dispatch
+  name: "综合判断：Issue 不涉及原型设计 → 标准派发，无 stitch-prototype"
+  issues:
+    - number: 62
+      title: "修复登录接口 500 错误"
+      body: "用户登录时偶发 500 错误，需要排查 auth middleware 逻辑。"
+      label: pending
+      owner_label: owner/claude
   open_prs: []
   pane_claude: idle
   pane_codex: idle

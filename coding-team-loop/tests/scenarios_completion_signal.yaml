@@ -1,0 +1,247 @@
+# scenarios_completion_signal.yaml
+# 对应 SKILL.md Step 1 完成信号处理 + Step 1.6 子任务完成联动
+# 覆盖：完成信号检测、子 Issue 时序检查、死锁防护、Memory 持久化
+
+# ── 基本完成信号检测 ──────────────────────────────────────────────
+
+- id: CS01
+  suite: core
+  name: "owner/claude 完成（HUMAN Issue 无子 Issue）→ verifying + owner/shuzai"
+  issues:
+    - number: 54
+      label: in-progress
+      owner_label: owner/claude
+      body: "## 需求背景\n通过 Stitch MCP 重做 ClawCoach 前端设计"
+      comments:
+        - body: "【OPENCLAW】已将此任务派发给 @claude，开始执行。"
+          createdAt: "2026-03-30T09:28:21Z"
+        - body: "【CLAUDE】【完成】PR #60 related to #54"
+          createdAt: "2026-03-30T10:26:52Z"
+  child_issues: []
+  open_prs:
+    - number: 60
+      body: "related to #54"
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step1_label_changes: ["in-progress -> verifying", "owner/claude -> owner/shuzai"]
+    step2_action: none
+    dispatch_to: none
+
+- id: CS02
+  suite: core
+  name: "owner/codex 完成 → needs-review"
+  issues:
+    - number: 42
+      label: in-progress
+      owner_label: owner/codex
+      body: "## 任务\nrelated to #40"
+      comments:
+        - body: "【OPENCLAW】已将此任务派发给 @codex，开始执行。"
+          createdAt: "2026-03-30T09:00:00Z"
+        - body: "【CODEX】【完成】PR #45 related to #42"
+          createdAt: "2026-03-30T10:00:00Z"
+  open_prs:
+    - number: 45
+      body: "related to #42"
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step1_label_changes: ["in-progress -> needs-review"]
+    step2_action: review-and-merge
+    dispatch_to: claude
+
+- id: CS03
+  suite: module:completion-signal
+  name: "owner/claude 完成（子 Issue）→ verifying + owner/claude（Claude 自验收）"
+  issues:
+    - number: 58
+      label: in-progress
+      owner_label: owner/claude
+      body: "## 任务来源\n由 Issue #54 拆解\n\nrelated to #54"
+      comments:
+        - body: "【OPENCLAW】已将此任务派发给 @claude，开始执行。"
+          createdAt: "2026-03-30T09:00:00Z"
+        - body: "【CLAUDE】【完成】PR #59 related to #58"
+          createdAt: "2026-03-30T10:00:00Z"
+  child_issues: []
+  open_prs:
+    - number: 59
+      body: "related to #58"
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step1_label_changes: ["in-progress -> verifying"]
+    step2_action: deliverable-verify
+    dispatch_to: claude
+
+# ── 非完成信号不触发推进 ──────────────────────────────────────────
+
+- id: CS04
+  suite: core
+  name: "【CLAUDE】方案概要 不算完成信号 → 无状态推进"
+  issues:
+    - number: 54
+      label: in-progress
+      owner_label: owner/claude
+      body: "## 需求背景\n设计任务"
+      comments:
+        - body: "【OPENCLAW】已将此任务派发给 @claude，开始执行。"
+          createdAt: "2026-03-30T09:00:00Z"
+        - body: "【CLAUDE】方案概要：已完成第一阶段规划"
+          createdAt: "2026-03-30T09:05:00Z"
+  open_prs: []
+  pane_claude: busy
+  pane_codex: idle
+  expect:
+    step1_label_changes: []
+    step2_action: none
+    dispatch_to: none
+
+# ── 子 Issue 时序检查（死锁修复核心场景）────────────────────────
+
+- id: CS05
+  suite: module:completion-signal
+  name: "死锁修复：HUMAN 打回重做 + 旧子 Issue → 正常处理完成信号"
+  context: >
+    复现 Issue #54 死锁场景：HUMAN 打回重做，openclaw 重新派发（dispatch 09:28Z），
+    旧子 Issue #58 仍存在（created 03:06Z < dispatch 09:28Z）。
+    Claude 完成新设计后发完成信号。
+    旧规则死锁（Step 1 忽略 + Step 1.6 跳过），新规则应正常推进。
+  issues:
+    - number: 54
+      label: in-progress
+      owner_label: owner/claude
+      body: "## 需求背景\n通过 Stitch MCP 重做 ClawCoach 前端设计"
+      comments:
+        - body: "【OPENCLAW】已将此任务派发给 @claude，开始执行。"
+          createdAt: "2026-03-30T08:56:11Z"
+        - body: "全部打回，从设计开始重做"
+          createdAt: "2026-03-30T09:10:20Z"
+        - body: "【OPENCLAW】状态已手动重置：verified → pending"
+          createdAt: "2026-03-30T09:19:36Z"
+        - body: "【OPENCLAW】已将此任务派发给 @claude，开始执行。"
+          createdAt: "2026-03-30T09:28:21Z"
+        - body: "【CLAUDE】方案修订：全部推翻重做"
+          createdAt: "2026-03-30T09:30:04Z"
+        - body: "【CLAUDE】【完成】PR #60 related to #54"
+          createdAt: "2026-03-30T10:26:52Z"
+  child_issues:
+    - number: 58
+      state: CLOSED
+      createdAt: "2026-03-30T03:06:33Z"
+      closedAt: "2026-03-30T06:59:52Z"
+      body: "related to #54"
+  open_prs:
+    - number: 60
+      body: "related to #54"
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step1_label_changes: ["in-progress -> verifying", "owner/claude -> owner/shuzai"]
+    step2_action: none
+    dispatch_to: none
+
+- id: CS06
+  suite: module:completion-signal
+  name: "当前周期子 Issue 存在（含混合新旧）→ 忽略父 Issue 完成信号"
+  context: >
+    测试两种场景合一：
+    1) 父 Issue 派发后拆出子 Issue，Claude 误写父完成信号 → 应忽略
+    2) 混合新旧子 Issue（旧的已关闭 + 新的 OPEN）→ 有当前周期子 Issue，仍应忽略
+  issues:
+    - number: 54
+      label: in-progress
+      owner_label: owner/claude
+      body: "## 需求背景\n大需求"
+      comments:
+        - body: "【OPENCLAW】已将此任务派发给 @claude，开始执行。"
+          createdAt: "2026-03-30T09:00:00Z"
+        - body: "【CLAUDE】已拆出子 Issue #58 和 #59"
+          createdAt: "2026-03-30T09:03:00Z"
+        - body: "【CLAUDE】【完成】无 PR，产出已在 Issue 评论中"
+          createdAt: "2026-03-30T10:00:00Z"
+  child_issues:
+    - number: 55
+      state: CLOSED
+      createdAt: "2026-03-30T03:00:00Z"
+      closedAt: "2026-03-30T06:00:00Z"
+      body: "related to #54"
+    - number: 58
+      state: OPEN
+      createdAt: "2026-03-30T09:05:00Z"
+      body: "related to #54"
+  open_prs: []
+  pane_claude: busy
+  pane_codex: idle
+  expect:
+    step1_label_changes: []
+    step2_action: none
+    dispatch_to: none
+
+- id: CS07
+  suite: module:completion-signal
+  name: "无 dispatch 评论 + 有子 Issue → 保守忽略完成信号"
+  issues:
+    - number: 54
+      label: in-progress
+      owner_label: owner/claude
+      body: "## 需求背景\n任务描述"
+      comments:
+        - body: "【CLAUDE】【完成】无 PR，产出已在 Issue 评论中"
+          createdAt: "2026-03-30T10:00:00Z"
+  child_issues:
+    - number: 58
+      state: CLOSED
+      createdAt: "2026-03-30T03:06:33Z"
+      body: "related to #54"
+  open_prs: []
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step1_label_changes: []
+    step2_action: progress-confirm
+    dispatch_to: claude
+
+# ── Memory 持久化场景 ─────────────────────────────────────────────
+
+- id: CS08
+  suite: module:memory
+  name: "Memory run_lock=true + 文件修改时间 < 10min → 跳过本轮"
+  memory:
+    run_lock: true
+    file_mtime_seconds_ago: 120
+  issues:
+    - number: 54
+      label: in-progress
+      owner_label: owner/claude
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step1_label_changes: []
+    step2_action: none
+    step3_action: none
+    dispatch_to: none
+    reason: "run_lock"
+
+- id: CS09
+  suite: module:memory
+  name: "Memory run_lock=true + 文件修改时间 > 10min → 强制清除 lock 继续"
+  context: >
+    上轮崩溃，run_lock 卡住。文件修改时间超过 10 分钟（cron 间隔），
+    应强制清除 lock 并正常执行。
+  memory:
+    run_lock: true
+    file_mtime_seconds_ago: 700
+  issues:
+    - number: 42
+      label: needs-review
+      owner_label: owner/codex
+  open_prs:
+    - number: 10
+      body: "related to #42"
+  pane_claude: idle
+  pane_codex: idle
+  expect:
+    step2_action: review-and-merge
+    dispatch_to: claude

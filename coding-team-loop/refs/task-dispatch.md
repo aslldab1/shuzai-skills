@@ -29,6 +29,11 @@ Step 1 已读取该 Issue 最近 10 条评论（含 body 和 createdAt）和 Cla
    - → 有：使用**带人工反馈格式**，引用该 HUMAN 评论原文（用 `jq -r` 解码，确保为原始 UTF-8，不含 `\uXXXX`）
    - → 没有：使用**标准格式**
 
+3. **是否涉及产品原型设计？**
+   - Issue 需求描述中涉及 UI 原型、页面原型、交互设计、产品原型、wireframe、mockup 等
+   - → 是：在派发消息中追加原型设计指令（见下方 ⓪ 步骤），要求 worker 使用 `/stitch-prototype` skill 执行原型设计
+   - → 如果 worker 执行时发现 skill 不可用（执行报错或无响应），**不要尝试替代方案**，立即在 Issue 评论反馈环境问题，停止执行
+
 > **【CLAUDE】前缀规范：** Claude 发布到 Issue 的所有评论必须以 `【CLAUDE】` 开头。这是系统区分 HUMAN 评论与 Claude 回复的唯一依据，缺少前缀会导致下一轮误判。
 
 **标准格式（无 HUMAN 反馈）：**
@@ -44,6 +49,7 @@ Issue #{N}：{Issue标题}
 {Issue 正文中的验收条件}
 
 请按以下步骤执行：
+{如判断维度 3 命中，插入 ⓪}
 ① 在 `issue-{N}` 分支上工作（从 main 创建，若已存在则直接使用）
 ② 在 Issue 评论中回复方案概要（2~3 句，不需要展开细节）
    **必须以 【CLAUDE】 开头，例如：`【CLAUDE】方案概要：…`**
@@ -74,6 +80,7 @@ Issue #{N}：{Issue标题}
 {HUMAN 最新评论原文，完整引用}
 
 请按以下步骤执行：
+{如判断维度 3 命中，插入 ⓪}
 ① 在 `issue-{N}` 分支上工作（从 main 创建，若已存在则直接使用）
 ② 在 Issue 评论中回复针对反馈的修改方案（2~3 句）
    **必须以 【CLAUDE】 开头，例如：`【CLAUDE】方案修订：…`**
@@ -98,6 +105,8 @@ Issue #{N}：{Issue标题}
 - {条件2}
 范围边界：{明确不包含的内容}
 
+{如判断维度 3 命中，插入 ⓪}
+
 完成后：
 1. push 分支并开 PR，PR body 中包含 "related to #{N}"
 2. 在 Issue 写完成信号：`【CODEX】【完成】PR #{pr_number} related to #{N}`
@@ -105,6 +114,19 @@ Issue #{N}：{Issue标题}
 
 ⚠️ 禁止执行 gh issue edit / gh issue close / gh pr merge —— 所有状态推进由 openclaw 自动处理。
 ```
+
+## 原型设计步骤 ⓪（判断维度 3 命中时插入）
+
+当 Issue 涉及产品原型设计时，在派发消息的步骤列表中插入以下步骤：
+
+```
+⓪ 本任务涉及产品原型设计，请使用 /stitch-prototype skill 完成原型。
+   如果 skill 不可用（执行报错、skill 未安装、无响应），立即在 Issue 评论：
+   「【{WORKER前缀}】stitch-prototype skill 不可用，请 HUMAN 检查环境配置」
+   然后停止执行，不要用其他方式替代原型设计。
+```
+
+其中 `{WORKER前缀}` 按 worker 身份替换：Claude → `【CLAUDE】`，Codex → `【CODEX】`。
 
 ## 派发动作（必须严格按序）
 

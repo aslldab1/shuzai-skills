@@ -3,6 +3,7 @@
 # 覆盖：changes-requested → fix 派发给 Codex
 
 - id: D01
+  suite: module:fix-dispatch
   name: "Step 3-P1：有 changes-requested Issue，Codex 空闲 → 派发 fix"
   issues:
     - number: 42
