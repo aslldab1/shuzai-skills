@@ -265,8 +265,12 @@ codex_orphan_recovered: [#{父Issue编号}]
 
 **检测方式：**
 1. 对每个 `in-progress + owner/claude` 的 Issue，查询所有 body 含 `related to #{父Issue编号}` 的 Issue（含 open 和 closed）
-2. 如果存在子 Issue 且**全部**为 `state=CLOSED` → 触发父 Issue 最终验收
-3. 如果没有子 Issue 或仍有未关闭的子 Issue → 跳过
+2. 如果存在子 Issue 且**全部**为 `state=CLOSED` → **进入时序检查（第 3 步）**
+3. **时序检查（防止旧子 Issue 误触发）：** 比较父 Issue 最新的 `【OPENCLAW】已将此任务派发给` 评论时间（dispatch_time）与所有子 Issue 中最晚的关闭时间（last_child_close_time）：
+   - `dispatch_time > last_child_close_time` → **跳过**（父 Issue 已被重新派发，旧子 Issue 不再相关，如 HUMAN 打回重做的场景）
+   - `dispatch_time < last_child_close_time` → 触发父 Issue 最终验收（子 Issue 是在当前周期内关闭的）
+   - 无派发评论 → 跳过（异常状态，不触发）
+4. 如果没有子 Issue 或仍有未关闭的子 Issue → 跳过
 
 **openclaw 执行以下操作：**
 
