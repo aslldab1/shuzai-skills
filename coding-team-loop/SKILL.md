@@ -105,8 +105,10 @@ Codex 开始工作前必须设置 `GH_TOKEN` 为 codex-bot 的 token。验证：
   ```
   - 检测完成信号：最新评论**精确包含** `【CLAUDE】【完成】` 或 `【CODEX】【完成】` 字样（不含`【完成】`的评论一律忽略）
     - owner/claude 完成：
+      - **先检查是否为有子 Issue 的父 Issue**：查询是否存在 body 含 `related to #{此Issue编号}` 的 Issue（open 或 closed）
+        - 如果存在子 Issue → **忽略完成信号，不做状态推进**（父 Issue 完成由 Step 1.6 自动触发，不依赖手动完成信号）
       - **子 Issue**（body 含 `related to #N`）→ 推进为 `verifying + owner/claude`（Claude 自行验收），留 【OPENCLAW】 评论
-      - **HUMAN Issue**（body 不含 `related to #N`）→ 推进为 `verifying + owner/shuzai`，Feishu 通知 HUMAN，留 【OPENCLAW】 评论
+      - **HUMAN Issue**（body 不含 `related to #N`，且无子 Issue）→ 推进为 `verifying + owner/shuzai`，Feishu 通知 HUMAN，留 【OPENCLAW】 评论
     - owner/codex 完成 → 推进为 `needs-review`，留 【OPENCLAW】 评论
 - **对每个 `verifying + blocked` Issue：** 查询所有 body 含 `fix for #{此Issue编号}` 的 Issue（open + closed）
   - 如果存在修复 Issue 且全部为 `state=CLOSED` → 移除 `blocked` label，留 【OPENCLAW】 评论「修复 Issue 已关闭，重新触发验收」，下轮 Step 2-P2/P4 正常命中
