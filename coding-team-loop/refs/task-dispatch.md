@@ -1,6 +1,6 @@
 # 开发任务派发
 
-适用于 Step 2-P3（派给 Claude）和 Step 3-P2（派给 Codex）。
+适用于 Step 2-P5（派给 Claude）和 Step 3-P3（派给 Codex）。
 
 ## 脚本
 
@@ -132,6 +132,38 @@ last_dispatched_at、last_issue_number
 **中断容错：** 任意步骤中断后，下一轮 LLM 读取 Issue 评论历史 + pane，可判断执行到了哪步并恢复：
 - 有派发评论 + label 仍为 pending → 补做第 2、3 步
 - 有派发评论 + label 为 in-progress + pane idle + 无 PR → stale 自愈逻辑接管
+
+## Claude 拆分 Codex 子任务规则
+
+当 Claude 需要将实现工作交给 Codex 时，**必须创建 GitHub Issue**，不得只更新 QUEUE.md：
+
+**第 1 步：创建 Codex Issue**
+```bash
+gh issue create -R {repo} \
+  --title "[子任务] {简短描述，如 C33-ui-rebuild：前端页面重建}" \
+  --body "## 任务来源\n由 Issue #{父N} 拆解，Claude 已完成规划。\n\n## 开发清单\n{详细步骤}\n\n## 验收标准\n{条件}\n\nrelated to #{父N}" \
+  --label "pending" --label "owner/codex"
+```
+
+**第 2 步：在父 Issue 写 【CLAUDE】 评论说明已创建子 Issue（包含编号）**
+
+**第 3 步：父 Issue 保持 `in-progress`，禁止写 `【CLAUDE】【完成】`**
+
+> ⚠️ **父 Issue 完成信号约束（严格执行）：**
+> 如果你拆分了子 Issue，**禁止手动写父 Issue 的 `【CLAUDE】【完成】` 信号**。
+>
+> 以下情况都不算完成，**不得写完成信号**：
+> - Codex 子任务已准备就绪 ≠ 完成
+> - 子 Issue PR 已提交 ≠ 完成
+> - 子 Issue review 通过 ≠ 完成
+> - 所有子 Issue 已关闭 ≠ 完成（仍需 openclaw 触发最终验收）
+>
+> 父 Issue 的完成由 openclaw 自动处理：所有子 Issue 关闭后，openclaw 通过 Step 1.6 自动触发最终验收（Step 2-P2），
+> Claude 只需在收到最终验收请求时回复【验收通过】即可。**不要主动写 `【CLAUDE】【完成】`。**
+
+> ⚠️ QUEUE.md 是 Codex 的内部工作文件，**不是 openclaw 的派发依据**。
+> openclaw 只通过 GitHub Issue label（`pending + owner/codex`）发现并派发 Codex 任务。
+> 只写 QUEUE.md 会导致 Codex 任务永远不会被自动派发。
 
 ## 中断恢复派发
 
