@@ -3,9 +3,12 @@
 openclaw cron 执行日志分析工具
 
 用法：
-  python3 analyze_runs.py --job clawcoach-progress-10m --last 10
-  python3 analyze_runs.py --job clawcoach-progress-10m --session {id} --steps
   python3 analyze_runs.py --list-jobs
+  python3 analyze_runs.py --job clawcoach-progress-10m --last 10
+  python3 analyze_runs.py --job clawcoach-progress-10m --last 5 --steps
+  python3 analyze_runs.py --session {id} --steps                    # 步骤概览
+  python3 analyze_runs.py --session {id} --verbose                  # 全部步骤完整入参+返回
+  python3 analyze_runs.py --session {id} --step 28                  # 只看第 28 步的完整详情
 """
 
 import argparse
@@ -252,11 +255,18 @@ def parse_session_steps(session_id: str) -> list[dict]:
     return steps
 
 
-def print_steps(steps: list[dict]):
+def print_steps(steps: list[dict], verbose: bool = False, focus_step: int = 0):
+    """Print step-by-step execution trace.
+
+    Args:
+        verbose: Show full arguments and result content for every step.
+        focus_step: If > 0, only show this step number with full detail.
+    """
     step_n = 0
     seen_calls = {}
     duplicates = []
     large_results = []
+    label_changes = []
 
     i = 0
     while i < len(steps):
@@ -266,28 +276,51 @@ def print_steps(steps: list[dict]):
             name = s["name"]
             args = s["args"]
 
-            # Format arguments
+            # Full argument string (used for verbose / focus)
             if name in ("exec",):
-                arg_str = args.get("command", "")[:200]
+                arg_full = args.get("command", "")
             elif name in ("read",):
-                arg_str = args.get("file_path", args.get("path", str(args)))[:150]
+                arg_full = args.get("file_path", args.get("path", str(args)))
             else:
-                arg_str = json.dumps(args, ensure_ascii=False)[:150]
+                arg_full = json.dumps(args, ensure_ascii=False, indent=2)
+            arg_short = arg_full[:200]
+
+            # Detect label changes for audit
+            if name == "exec" and "gh issue edit" in arg_full:
+                label_changes.append((step_n, arg_full))
 
             # Check duplicates
-            call_key = f"{name}:{arg_str[:80]}"
+            call_key = f"{name}:{arg_short[:80]}"
             is_dup = call_key in seen_calls
             if is_dup:
-                duplicates.append((step_n, name, arg_str[:80]))
+                duplicates.append((step_n, name, arg_short[:80]))
             seen_calls[call_key] = step_n
 
-            dup_tag = f" {YELLOW}[DUP of step {seen_calls.get(call_key, '?')}]{RESET}" if is_dup and seen_calls[call_key] != step_n else ""
-            print(f"{BOLD}Step {step_n:2d}{RESET} [{name}]{dup_tag}")
-            print(f"       {DIM}{arg_str}{RESET}")
-
-            # Show result size
+            # Get result if next
+            result = None
             if i + 1 < len(steps) and steps[i + 1]["kind"] == "result":
                 result = steps[i + 1]
+
+            # Skip if focusing on a different step
+            if focus_step and step_n != focus_step:
+                if result:
+                    i += 2
+                else:
+                    i += 1
+                continue
+
+            # Print step header
+            dup_tag = f" {YELLOW}[DUP of step {seen_calls.get(call_key, '?')}]{RESET}" if is_dup and seen_calls[call_key] != step_n else ""
+            print(f"{BOLD}Step {step_n:2d}{RESET} [{name}]{dup_tag}")
+
+            # Print arguments
+            if verbose or focus_step:
+                print(f"       {DIM}{arg_full}{RESET}")
+            else:
+                print(f"       {DIM}{arg_short}{RESET}")
+
+            # Print result
+            if result:
                 chars = result["chars"]
                 size_tag = ""
                 if chars > 10000:
@@ -296,24 +329,42 @@ def print_steps(steps: list[dict]):
                 elif chars > 5000:
                     size_tag = f" {YELLOW}⚠{RESET}"
                     large_results.append((step_n, name, chars))
-                print(f"       → {chars:,} chars{size_tag}")
+
+                if verbose or focus_step:
+                    # Show full content
+                    print(f"       → {chars:,} chars{size_tag}")
+                    content = result["content"]
+                    # Indent content for readability
+                    for line in content.split("\n"):
+                        print(f"       │ {line}")
+                else:
+                    print(f"       → {chars:,} chars{size_tag}")
+
                 i += 2
                 continue
 
         elif s["kind"] == "output":
-            print(f"\n{'─' * 60}")
-            print(f"{BOLD}[Output]{RESET} ({len(s['text'])} chars)")
-            print(s["text"][:500])
-            if len(s["text"]) > 500:
-                print("...")
-            print(f"{'─' * 60}\n")
+            if not focus_step:
+                print(f"\n{'─' * 60}")
+                print(f"{BOLD}[Output]{RESET} ({len(s['text'])} chars)")
+                if verbose:
+                    print(s["text"])
+                else:
+                    print(s["text"][:500])
+                    if len(s["text"]) > 500:
+                        print("...")
+                print(f"{'─' * 60}\n")
 
         elif s["kind"] == "error":
-            print(f"\n{RED}{'─' * 60}")
-            print(f"[ABORTED] {s['error']}")
-            print(f"{'─' * 60}{RESET}\n")
+            if not focus_step:
+                print(f"\n{RED}{'─' * 60}")
+                print(f"[ABORTED] {s['error']}")
+                print(f"{'─' * 60}{RESET}\n")
 
         i += 1
+
+    if focus_step:
+        return
 
     # Summary
     print(f"\n{BOLD}步骤统计{RESET}")
@@ -326,6 +377,10 @@ def print_steps(steps: list[dict]):
         print(f"  {YELLOW}大数据返回 ({len(large_results)}):{RESET}")
         for sn, name, chars in large_results:
             print(f"    Step {sn}: [{name}] {chars:,} chars")
+    if label_changes:
+        print(f"\n{BOLD}Label 变更审计{RESET}")
+        for sn, cmd in label_changes:
+            print(f"  Step {sn}: {cmd}")
 
 
 def list_jobs():
@@ -353,6 +408,8 @@ def main():
     parser.add_argument("--last", type=int, default=10, help="分析最近 N 次执行 (default: 10)")
     parser.add_argument("--session", help="分析指定 session 的执行步骤")
     parser.add_argument("--steps", action="store_true", help="输出执行步骤详情")
+    parser.add_argument("--step", type=int, default=0, help="查看指定步骤的完整入参和返回内容")
+    parser.add_argument("--verbose", action="store_true", help="显示所有步骤的完整入参和返回内容")
     parser.add_argument("--list-jobs", action="store_true", help="列出所有 cron jobs")
     args = parser.parse_args()
 
@@ -364,7 +421,7 @@ def main():
         print(f"\n{BOLD}Session 步骤分析: {args.session}{RESET}\n")
         steps = parse_session_steps(args.session)
         if steps:
-            print_steps(steps)
+            print_steps(steps, verbose=args.verbose, focus_step=args.step)
         return
 
     if not args.job:
@@ -383,7 +440,7 @@ def main():
     runs = load_runs(job_id, args.last)
     print_overview(runs, timeout)
 
-    if args.steps and runs:
+    if (args.steps or args.step or args.verbose) and runs:
         # Find latest run with session
         for run in reversed(runs):
             sid = run.get("sessionId")
@@ -391,7 +448,7 @@ def main():
                 print(f"\n\n{BOLD}最近一次执行步骤 ({fmt_ts(run.get('ts', 0))}){RESET}\n")
                 steps = parse_session_steps(sid)
                 if steps:
-                    print_steps(steps)
+                    print_steps(steps, verbose=args.verbose, focus_step=args.step)
                 break
 
 
