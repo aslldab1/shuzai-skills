@@ -145,10 +145,19 @@ mcp__stitch__generate_screen_from_text(
 
 #### 错误处理
 
-- **超时 / 连接错误：** generate 和 edit 涉及多模态生成，耗时较长（可能数分钟）。
-  - 如果报超时错误，等待 30 秒后用 `get_screen` 检查是否已生成成功
-  - 如确认未成功，发起重试（最多重试 2 次）
-- **生成失败：** 简化 prompt 后重试，减少复杂描述
+generate 和 edit 涉及多模态生成，耗时较长（可能数分钟）。API 调用失败≠生成失败，后端可能仍在异步处理。
+
+**失败后处理流程（适用于超时、连接错误、任意非成功响应）：**
+
+1. **不要立即重试。** 记录当前已知的 screen 数量（通过 `list_screens` 获取）
+2. **等待 2 分钟**（使用 `sleep 120`）
+3. 调用 `list_screens` 获取最新 screen 列表，与之前对比：
+   - **新增了目标 screen** → 生成已成功，用 `get_screen` 确认内容，继续下一个
+   - **未新增** → 确认生成确实失败，此时再发起重试（最多重试 1 次）
+4. 重试仍失败时，简化 prompt（减少复杂描述）后再尝试一次
+
+**关键原则：宁可多等，不可多生成。** 重复生成会产生大量废弃 screen，清理成本高（没有 delete API）。
+
 - **output_components 包含建议：** 将建议展示给用户，用户选择后以选中的建议作为 prompt 再次调用
 
 #### 并行策略
@@ -252,7 +261,7 @@ https://stitch.withgoogle.com/u/1/projects/{projectId}
 
 ## 注意事项
 
-- `generate_screen_from_text` 和 `edit_screens` 耗时较长，调用后耐心等待，不要过早重试
-- 每次生成后务必用 `get_screen` 验证实际内容，不要仅依赖返回结果判断
+- `generate_screen_from_text` 和 `edit_screens` 耗时较长，API 报错不代表后端未处理，**必须等待 2 分钟后查询确认再决定是否重试**
+- 每次生成后务必用 `list_screens` + `get_screen` 验证实际内容，不要仅依赖 API 返回结果判断
 - Screen 的注释/标注是重要交付物，确保每个页面都有清晰的功能说明
 - 如用户有关联的 GitHub Issue，完成后将 Stitch URL 发布到 Issue 评论中

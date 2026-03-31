@@ -235,7 +235,11 @@ def evaluate_scenario(skill_content: str, scenario: dict,
             actual_str = str(actual_val)
 
         keywords = expect_val if isinstance(expect_val, list) else [expect_val]
-        missing = [kw for kw in keywords if kw not in actual_str]
+        # Normalize arrows: "a -> b", "a->b", "a → b" all match "a->b"
+        def normalize(s: str) -> str:
+            return s.replace(" -> ", "->").replace(" → ", "->").replace("→", "->")
+        norm_actual = normalize(actual_str)
+        missing = [kw for kw in keywords if normalize(kw) not in norm_actual]
 
         if missing:
             lines.append(f"{RED}  ✗ {field_name}: 缺少关键词 {missing}（实际：{actual_val}）{RESET}")

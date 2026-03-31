@@ -142,7 +142,12 @@ python3 ~/.openclaw/workspace/skills/cron-log-review/scripts/analyze_runs.py --j
    - 派发前是否先做了 busy_check
    - label 变更前是否先写了 【OPENCLAW】 评论
    - dispatch 失败后是否回滚了 label
-4. **执行阶段划分**：把 tool calls 按逻辑分为环境探测 / 信号读取 / 判断决策 / 执行动作 / 报告输出
+4. **busy_check 交叉验证**（P0 级别）：
+   - 将 busy_check 脚本返回值与 pane 实际输出内容做对比
+   - 如果 pane 中有明显活动迹象（thinking、Running、工具调用输出、生成中等）但 busy_check 返回 IDLE → P0 问题（脚本漏检导致误派发风险）
+   - 如果 pane 无活动但 busy_check 返回 BUSY → P1 问题（脚本误判导致任务延迟）
+   - 检查方式：对比 `tmux capture-pane` 原始输出与 busy_check.sh 返回值，不能只看脚本返回值就下结论
+5. **执行阶段划分**：把 tool calls 按逻辑分为环境探测 / 信号读取 / 判断决策 / 执行动作 / 报告输出
 5. **冗余检测**：同一文件被 read 多次、同一命令重复执行、环境探测类命令（ls、git remote、echo $VAR）
 6. **数据膨胀点**：哪个 tool result 返回数据量最大（> 5K chars）
 7. **被中断位置**：超时时执行到了哪一步

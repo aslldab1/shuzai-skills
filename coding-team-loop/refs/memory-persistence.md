@@ -20,8 +20,8 @@ fi
 ```json
 {
   "workers": {
-    "claude": { "last_dispatched_at": "", "last_issue_number": null },
-    "codex": { "last_dispatched_at": "", "last_issue_number": null }
+    "claude": { "last_dispatched_at": "", "last_issue_number": null, "dispatch_fail_count": 0 },
+    "codex": { "last_dispatched_at": "", "last_issue_number": null, "dispatch_fail_count": 0 }
   },
   "notifications": {
     "all_verified_notified_at": null,
@@ -68,6 +68,7 @@ fi
 | `run_lock` | Step 1 开头设 true，Step 5 设 false | Step 1 开头检查 |
 | `workers.{w}.last_dispatched_at` | Step 2/3 派发后 | 可用于防重复派发判断 |
 | `workers.{w}.last_issue_number` | Step 2/3 派发后 | 可用于防重复派发判断 |
+| `workers.{w}.dispatch_fail_count` | Step 2/3 派发后（submitted→清零，failed→+1） | 连续 3 次触发 Feishu 通知 |
 | `codex_orphan_recovered` | Step 1.5 补建后追加 | Step 1.5 排除已处理的父 Issue |
 | `notifications.all_verified_notified_at` | 全局异常发送通知后 | 全局异常检查是否已通知 |
 | `notifications.last_feishu_report_hash` | Step 4 发送报告后 | Step 4 判断是否跳过重复报告 |

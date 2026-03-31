@@ -36,7 +36,7 @@
   pane_claude: idle
   pane_codex: idle
   expect:
-    step1_label_changes: ["changes-requested->needs-review"]
+    step1_label_changes: ["changes-requested", "needs-review"]
     step2_action: review-and-merge
     dispatch_to: claude
     message_contains: ["review"]

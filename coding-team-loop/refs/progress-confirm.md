@@ -26,6 +26,26 @@ Issue #{N}：{Issue标题}
 ⚠️ 只需在 Issue 评论中回复进度或补写完成信号。禁止执行 gh issue edit / gh issue close —— 状态推进由 openclaw 自动处理。
 ```
 
+## 派发丢失检测（进度确认前置检查）
+
+在发送进度确认消息**之前**，先检查 worker pane 中是否有该 Issue 的执行痕迹：
+
+```
+tmux capture-pane -p -t {pane} -S -200 2>/dev/null | grep -c "Issue #{N}\|issue-{N}\|#{N}"
+```
+
+| 检测结果 | 含义 | 动作 |
+|---------|------|------|
+| 匹配数 > 0 | worker 收到过任务，可能卡住了 | 正常发送进度确认消息 |
+| 匹配数 = 0 | **派发可能未送达**（tmux 发送失败、会话重建等） | **跳过进度确认，改为重新派发完整任务消息**（按 refs/task-dispatch.md 格式，走完整派发流程的第 3 步 tmux_dispatch，第 1、2 步已在之前完成不需重复） |
+
+重新派发时在 Issue 写 【OPENCLAW】 评论说明：
+```
+【OPENCLAW】检测到 worker 可能未收到任务消息，重新派发。
+```
+
+> **注意：** 重新派发只补做 tmux_dispatch（第 3 步），不重复写派发评论和改 label（这些在原始派发时已完成）。
+
 ## openclaw 后续动作
 
 下轮 Step 1 读取 Issue 最新评论，LLM 综合判断 worker 回复的含义并路由：
@@ -34,6 +54,7 @@ Issue #{N}：{Issue标题}
 |---------|------|
 | 含完成信号 `【CLAUDE/CODEX】【完成】` | 正常推进状态 |
 | 回复表示仍在进行、给出进度说明 | 更新最后活动时间戳，继续等待 |
+| 回复表示不清楚该任务、未收到过任务 | **重新派发完整任务消息**（同上方派发丢失处理） |
 | 回复表示遇到阻塞、无法继续 | label 加 `owner/shuzai`，Feishu 通知 HUMAN |
 | 超过 1 小时无任何回复 | Feishu 通知 HUMAN（worker 可能彻底卡死） |
 

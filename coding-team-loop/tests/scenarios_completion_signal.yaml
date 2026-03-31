@@ -24,7 +24,7 @@
   pane_claude: idle
   pane_codex: idle
   expect:
-    step1_label_changes: ["in-progress -> verifying", "owner/claude -> owner/shuzai"]
+    step1_label_changes: ["in-progress -> verifying", "owner/shuzai"]
     step2_action: none
     dispatch_to: none
 
@@ -138,7 +138,7 @@
   pane_claude: idle
   pane_codex: idle
   expect:
-    step1_label_changes: ["in-progress -> verifying", "owner/claude -> owner/shuzai"]
+    step1_label_changes: ["in-progress -> verifying", "owner/shuzai"]
     step2_action: none
     dispatch_to: none
 

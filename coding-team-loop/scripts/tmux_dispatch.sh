@@ -9,8 +9,6 @@ if [[ -z "$TARGET" || -z "$PAYLOAD" ]]; then
   exit 2
 fi
 
-ack_regex='Working|Calculating|Misting|Ran '
-
 # NOTE: busy check is done by openclaw BEFORE calling this script (SKILL.md Step 2/3).
 # This script does NOT re-check busy state — doing so caused timing-gap false rejections.
 
@@ -18,17 +16,37 @@ capture_tail() {
   tmux capture-pane -p -t "$TARGET" -S -40 2>/dev/null || true
 }
 
+# Ack detection: match symbol + capitalized gerund (e.g. ✢ Composing, • Working)
+# or Codex-specific patterns (Thinking..., braille spinners)
+# Uses Python regex for consistency with busy_check.sh
 has_ack() {
-  capture_tail | grep -Eq "$ack_regex"
+  capture_tail | python3 -c "
+import sys, re
+patterns = [
+    re.compile(r'^\s*[✢✦✳✶✻✽•·∙⏺] [A-Z][a-z]+ing'),
+    re.compile(r'^\s*[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏⣾⣽⣻⢿⡿⣟⣯⣷]'),
+    re.compile(r'Running…'),
+    re.compile(r'Thinking\.\.\.'),
+]
+for line in sys.stdin:
+    line = line.rstrip('\n')
+    for p in patterns:
+        if p.search(line):
+            sys.exit(0)
+sys.exit(1)
+"
 }
 
-# Step1 send payload
-(tmux send-keys -t "$TARGET" -l -- "$PAYLOAD" && tmux send-keys -t "$TARGET" C-m && sleep 0.6 && tmux send-keys -t "$TARGET" C-m) || {
+# Step1: send payload via load-buffer + paste-buffer (reliable for long messages)
+TMPFILE=$(mktemp /tmp/tmux_dispatch.XXXXXX)
+trap 'rm -f "$TMPFILE"' EXIT
+printf '%s' "$PAYLOAD" > "$TMPFILE"
+(tmux load-buffer "$TMPFILE" && tmux paste-buffer -t "$TARGET" && sleep 0.6 && tmux send-keys -t "$TARGET" C-m) || {
   echo "dispatch=failed reason=send_error target=$TARGET"
   exit 1
 }
 
-# Step2 ack check with retries
+# Step2: ack check with retries
 for _ in 1 2 3; do
   sleep 1
   if has_ack; then
@@ -38,7 +56,7 @@ for _ in 1 2 3; do
   tmux send-keys -t "$TARGET" C-m || true
 done
 
-# Step3 final ack check only (no hardcoded task text)
+# Step3: final ack check
 sleep 1
 if has_ack; then
   echo "dispatch=submitted target=$TARGET mode=retry-cm"

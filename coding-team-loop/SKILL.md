@@ -325,6 +325,7 @@ gh issue edit {父N} --add-label verifying --remove-label in-progress
 将本轮 memory 写回 `~/.openclaw/coding-team-loop/memory.json`：
 - `run_lock` → `false`
 - 如本轮有派发 → 更新 `workers.{worker}.last_dispatched_at`（ISO8601）和 `last_issue_number`
+- 如本轮有派发 → 更新 `workers.{worker}.dispatch_fail_count`（submitted→清零，failed→+1）
 - 如本轮 Step 1.5 补建了子 Issue → 追加父 Issue 编号到 `codex_orphan_recovered`
 - 如本轮发送了"全部已验收"通知 → 记录 `notifications.all_verified_notified_at`
 - 如本轮发送了进度报告 → 更新 `notifications.last_feishu_report_hash`
@@ -340,9 +341,11 @@ workers:
   claude:
     last_dispatched_at: ""      # ISO8601
     last_issue_number: null
+    dispatch_fail_count: 0      # submitted→清零，failed→+1，达 3 触发 Feishu 通知
   codex:
     last_dispatched_at: ""
     last_issue_number: null
+    dispatch_fail_count: 0
 
 notifications:
   all_verified_notified_at: null   # 防止重复通知
