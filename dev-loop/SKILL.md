@@ -77,8 +77,9 @@ bash scripts/busy_check.sh {claude_pane}
 - 每轮都必须重试派发，不得因历史失败而跳过
 
 **完成信号处理：**
-- 检测到 `【CODEX】【完成】` → label 改 `needs-review`（等 Claude review PR）
-- 检测到 `【CLAUDE】【完成】` → label 改 `verifying`（**由 validator 做验收，openclaw 不自行验收**）
+- **Epic Issue（带 `epic` label）不受评论中完成信号影响**：子 Issue 评论中的 `【CLAUDE】【完成】` / `【CODEX】【完成】` 只代表该子任务完成，不触发 epic 本身的状态推进。Epic 的状态推进唯一依据是子 Issue 全部关闭（见下条）
+- 检测到 `【CODEX】【完成】` → label 改 `needs-review`（等 Claude review PR）（仅限非 epic Issue）
+- 检测到 `【CLAUDE】【完成】` → label 改 `verifying`（**由 validator 做验收，openclaw 不自行验收**）（仅限非 epic Issue）
 - 子 Issue 全部关闭 → 父 Issue label 改 `verifying`（最终验收）
 - validator 验收通过 → label 改 `verified`，通知 HUMAN 确认关闭
 - validator 验收不通过 → label 改回 `pending`，附验收反馈，下轮重新派发
@@ -95,7 +96,7 @@ bash scripts/busy_check.sh {claude_pane}
 **必须执行以下命令发送飞书通知**（不可省略，这是每轮的必要输出）：
 
 ```bash
-openclaw message send --channel feishu --target "ou_c5bd4c88f78cbf338f76dbb5e8f64fed" -m "通知内容"
+openclaw message send --channel feishu --account stage2 --target "ou_92ebef681150322a26c3af3d1d79072e" -m "通知内容"
 ```
 
 通知内容使用以下格式：
