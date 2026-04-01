@@ -92,9 +92,8 @@ PROMPT_TEMPLATE = """\
 {{
   "step1_label_changes": ["Step 1 中应自动触发的 label 变更，如 in-progress->needs-review，无则为空数组"],
   "handoff_label_changes": ["owner/shuzai 处理阶段（Step1 完成后、Step2 之前）触发的 label 变更，如 verifying->pending，无则为空数组"],
-  "step2_action": "review-and-merge / deliverable-verify / progress-confirm / task-dispatch / route-owner / none",
-  "step3_action": "fix-dispatch / progress-confirm / task-dispatch / none",
-  "dispatch_to": "claude / codex / both / none",
+  "step2_action": "review-and-merge / deliverable-verify / fix-dispatch / progress-confirm / task-dispatch / route-owner / none",
+  "dispatch_to": "claude / none",
   "message_contains": ["派发消息中必须包含的关键词，无则为空数组"],
   "stale_recovery": "resume / reset / none （stale in-progress 自愈动作）",
   "reason": "一句话说明理由"
@@ -219,7 +218,7 @@ def evaluate_scenario(skill_content: str, scenario: dict,
         return False
 
     passed = True
-    for field_name in ["step2_action", "step3_action", "dispatch_to",
+    for field_name in ["step2_action", "dispatch_to",
                        "message_contains", "step1_label_changes",
                        "handoff_label_changes", "stale_recovery"]:
         actual_val = result.get(field_name)

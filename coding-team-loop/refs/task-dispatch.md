@@ -1,11 +1,11 @@
 # 开发任务派发
 
-适用于 Step 2-P5（派给 Claude）和 Step 3-P3（派给 Codex）。
+适用于 Step 2-P6（Claude 直接执行）和 Step 2-P7（Claude 通过 Codex 插件执行）。
 
 ## 脚本
 
 ```bash
-~/.openclaw/workspace/skills/coding-team-loop/scripts/tmux_dispatch.sh {target} "{payload}"
+~/.openclaw/workspace/skills/coding-team-loop/scripts/tmux_dispatch.sh {claude_pane} "{payload}"
 ```
 
 返回值：
@@ -96,10 +96,12 @@ Issue #{N}：{Issue标题}
 ⚠️ 禁止执行 gh issue edit / gh issue close / gh pr merge —— 所有状态推进由 openclaw 自动处理。
 ```
 
-## Codex 开发任务消息格式
+## Codex 开发任务消息格式（通过 Claude 调度）
+
+当 Issue 的 owner 是 `owner/codex` 时，消息发给 Claude，指示 Claude 通过 Codex 插件执行：
 
 ```
-【OPENCLAW】【Task Brief】
+【OPENCLAW】【Codex 开发任务（通过 Codex 插件调度）】
 Issue #{N}：{Issue标题}
 链接：{Issue URL}
 
@@ -112,9 +114,17 @@ Issue #{N}：{Issue标题}
 
 {如判断维度 3 命中，插入 ⓪}
 
-完成后：
-1. push 分支并开 PR，PR body 中包含 "related to #{N}"
-2. 在 Issue 写完成信号：`【CODEX】【完成】PR #{pr_number} related to #{N}`
+请通过 Codex 插件执行此任务：
+① 使用 /rescue 或 codex:codex-rescue agent 将以下任务派发给 Codex：
+   - 任务描述：{Issue 正文中的需求描述}
+   - 分支：issue-{N}
+   - 验收条件：{条件列表}
+② 跟踪执行进度（foreground 模式等待完成，或 --background + status 轮询）
+③ Codex 完成后，验证结果：
+   - 检查分支是否存在且有 commit
+   - 检查 PR 是否已创建且 body 含 "related to #{N}"
+   - 如有问题，重新派发修复
+④ 在 Issue 写完成信号：`【CODEX】【完成】PR #{pr_number} related to #{N}`
    （这是 openclaw 推进状态的唯一依据）
 
 ⚠️ 禁止执行 gh issue edit / gh issue close / gh pr merge —— 所有状态推进由 openclaw 自动处理。
@@ -131,7 +141,7 @@ Issue #{N}：{Issue标题}
    然后停止执行，不要用其他方式替代原型设计。
 ```
 
-其中 `{WORKER前缀}` 按 worker 身份替换：Claude → `【CLAUDE】`，Codex → `【CODEX】`。
+其中 `{WORKER前缀}` 按任务类型替换：owner/claude → `【CLAUDE】`，owner/codex → `【CODEX】`。
 
 ## 方案文档产出规范（判断维度 4 命中时追加）
 
@@ -161,9 +171,9 @@ label: in-progress · 派发时间：{datetime}"
 gh issue edit {N} --add-label in-progress --remove-label pending
 ```
 
-**第 3 步：tmux 派发**
+**第 3 步：tmux 派发（始终发给 Claude pane）**
 ```bash
-bash scripts/tmux_dispatch.sh {pane} "{payload}"
+bash scripts/tmux_dispatch.sh {claude_pane} "{payload}"
 ```
 - 返回 `dispatch=submitted` → 正常，继续
 - 返回 `dispatch=failed`（任何原因）→ **本轮立即停止**，不得用任何其他 tmux 命令重试，等下一轮

@@ -1,10 +1,10 @@
 # scenarios_fix_dispatch.yaml
 # 对应 refs/fix-dispatch.md
-# 覆盖：changes-requested → fix 派发给 Codex
+# 覆盖：changes-requested → Claude 通过 Codex 插件派发 fix
 
 - id: D01
   suite: module:fix-dispatch
-  name: "Step 3-P1：有 changes-requested Issue，Codex 空闲 → 派发 fix"
+  name: "Step 2-P3：有 changes-requested Issue，Claude 空闲 → Claude 通过 Codex 插件派发 fix"
   issues:
     - number: 42
       label: changes-requested
@@ -16,8 +16,7 @@
       latest_review_at: "2026-03-26T11:00:00Z"
       latest_commit_at: "2026-03-26T10:00:00Z"
   pane_claude: idle
-  pane_codex: idle
   expect:
-    step3_action: fix-dispatch
-    dispatch_to: codex
+    step2_action: fix-dispatch
+    dispatch_to: claude
     message_contains: ["42"]

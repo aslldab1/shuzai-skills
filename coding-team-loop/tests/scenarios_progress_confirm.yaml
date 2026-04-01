@@ -6,7 +6,7 @@
 
 - id: PC01
   suite: core
-  name: "Stale 20分钟：Claude 和 Codex 各有 stale Issue + worker 空闲 → 两侧同时发进度确认"
+  name: "Stale 20分钟：Claude 和 Codex 各有 stale Issue + Claude 空闲 → 发进度确认（高优先级的先处理）"
   issues:
     - number: 42
       label: in-progress
@@ -24,15 +24,13 @@
       last_activity_minutes_ago: 25
   open_prs: []
   pane_claude: idle
-  pane_codex: idle
   expect:
     step2_action: progress-confirm
-    step3_action: progress-confirm
-    dispatch_to: both
+    dispatch_to: claude
 
 - id: PC02
   suite: core
-  name: "Stale 20分钟但 worker 仍在忙碌 → 不发确认消息"
+  name: "Stale 20分钟但 Claude 仍在忙碌 → 不发确认消息"
   issues:
     - number: 42
       label: in-progress
@@ -40,7 +38,6 @@
       last_activity_minutes_ago: 25
   open_prs: []
   pane_claude: busy
-  pane_codex: idle
   expect:
     step2_action: none
     dispatch_to: none
@@ -62,7 +59,6 @@
       last_activity_minutes_ago: 35
   open_prs: []
   pane_claude: idle
-  pane_codex: idle
   expect:
     step2_action: none
     dispatch_to: none
@@ -82,7 +78,6 @@
       last_activity_minutes_ago: 5
   open_prs: []
   pane_claude: idle
-  pane_codex: idle
   expect:
     step1_label_changes: []
     step2_action: none
