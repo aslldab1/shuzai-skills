@@ -28,4 +28,4 @@ cron-log-review SKILL.md 原文：
 
 ## 修复 PR
 
-待填写
+PR #17 (已合并)
