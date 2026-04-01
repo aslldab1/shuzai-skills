@@ -66,10 +66,33 @@ bash scripts/busy_check.sh {claude_pane}
 
 **派发动作顺序：**
 ```
-① gh issue comment  ← 写 【OPENCLAW】 派发评论（持久化锚点）
-② gh issue edit     ← 更新 label
+⓪ 跨轮失败检测     ← 检查最近评论是否有连续 OPENCLAW 无回复（见下方硬约束）
+① busy_check       ← 确认 worker 可达
+② gh issue comment  ← 写 【OPENCLAW】 派发评论（持久化锚点）
 ③ tmux 派发         ← bash scripts/tmux_dispatch.sh
+④ gh issue edit     ← 仅在 ③ 成功时更新 label（dispatch=failed 则不变更）
 ```
+
+**派发失败处理：**
+- tmux_dispatch.sh 返回 `dispatch=failed` → 本轮不做 label 变更（保持原状态）
+- 连续 2 轮 dispatch 失败 → 飞书通知中高亮标注"⚠️ Worker 不可达，请恢复 tmux worker 会话"，暂停后续派发
+- 禁止对不可达的 worker 继续写派发评论（避免评论堆积混淆）
+
+**派发前必须执行的跨轮失败检测（硬约束）：**
+
+在写 OPENCLAW 评论或执行 tmux 派发之前，必须先检查目标 Issue 的最近评论：
+1. 读取目标 Issue 最近 10 条评论
+2. 从最新评论往前扫描，检查是否存在**连续 >= 2 条 `【OPENCLAW】` 评论且中间无任何 `【CLAUDE】` 或 `【CODEX】` 回复**
+3. 如果检测到连续无回复的 OPENCLAW 评论 >= 2 条 → **判定为 dispatch 失效**，执行以下动作：
+   - **不写新的 OPENCLAW 评论**（禁止评论堆积）
+   - **不执行 tmux 派发**
+   - **不变更 label**
+   - 在飞书通知中高亮标注：`⚠️ Worker 不可达（连续 {N} 轮无响应），请恢复 tmux worker 会话 clawcoach-claude-2116:0.0`
+   - 本轮仅输出飞书通知，不做其他操作
+
+**verifying 超时处理：**
+
+检查 `verifying` 状态的 Issue 最近评论：如果最近 3 条 OPENCLAW 评论均未获得 validator 反馈（无 `验收通过` 或 `验收不通过` 信号），则在飞书通知中标注 `⚠️ Issue #{N} 验收超时，请人工检查 validator 状态`。
 
 **完成信号处理：**
 - 检测到 `【CODEX】【完成】` → label 改 `needs-review`（等 Claude review PR）
@@ -85,9 +108,15 @@ bash scripts/busy_check.sh {claude_pane}
 - `⚠️ 禁止执行 gh issue edit / gh issue close / gh pr merge`
 - 如涉及原型设计 → 要求使用 `/stitch-prototype` skill
 
-### 3. 输出进度报告
+### 3. 输出进度报告并发送飞书通知
 
-简洁的飞书格式：
+**必须执行以下命令发送飞书通知**（不可省略，这是每轮的必要输出）：
+
+```bash
+openclaw message send --channel feishu --target "ou_c5bd4c88f78cbf338f76dbb5e8f64fed" -m "通知内容"
+```
+
+通知内容使用以下格式：
 ```
 【开发进度 {datetime}】
 
