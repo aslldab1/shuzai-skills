@@ -141,30 +141,23 @@ python3 ~/.openclaw/workspace/skills/cron-log-review/scripts/analyze_runs.py --j
 
 2. **状态推进正确性**：
    - 提取所有 `gh issue edit --add-label / --remove-label` 调用，还原 label 变更链
-   - 对照 coding-team-loop 规则验证每次 label 变更是否合法：
-     - `pending → in-progress`：必须在派发动作之后
-     - `in-progress → needs-review`：必须检测到 `【CODEX】【完成】` 信号
-     - `in-progress → verifying`：必须检测到 `【CLAUDE】【完成】` 信号
-     - `verifying → pending`：必须有 HUMAN 反馈（owner/shuzai 流程）
-     - `changes-requested → needs-review`：必须 PR 有新 commit
-   - 标记违规的状态推进为 P0 问题
+   - 判断每次 label 变更是否合理（基于上下文，不对照固定规则表）：
+     - 变更前是否有对应的完成信号或触发事件
+     - 变更是否与当前 Issue 状态一致（不跳步、不矛盾）
+   - 明显不合理的变更标记为 P0
 3. **派发决策合理性**：
    - 提取 `tmux_dispatch.sh` 调用和 `gh issue comment` 中的派发消息
-   - 验证：是否选了正确的优先级分支（P1 > P2 > ... ），派给了正确的 worker
+   - 判断：派发的 Issue 是否是当前最应该推进的（综合考虑优先级和依赖关系）
    - 检查是否有重复派发（同一 Issue 在同一轮被派发两次）
 4. **操作顺序**：
    - 派发前是否先做了 busy_check
    - label 变更前是否先写了 【OPENCLAW】 评论
-   - dispatch 失败后是否回滚了 label
 5. **busy_check 交叉验证**（P0 级别）：
    - 将 busy_check 脚本返回值与 pane 实际输出内容做对比
-   - 如果 pane 中有明显活动迹象（thinking、Running、工具调用输出、生成中等）但 busy_check 返回 IDLE → P0 问题（脚本漏检导致误派发风险）
-   - 如果 pane 无活动但 busy_check 返回 BUSY → P1 问题（脚本误判导致任务延迟）
-   - 检查方式：对比 `tmux capture-pane` 原始输出与 busy_check.sh 返回值，不能只看脚本返回值就下结论
-6. **执行阶段划分**：把 tool calls 按逻辑分为环境探测 / 信号读取 / 判断决策 / 执行动作 / 报告输出
-7. **冗余检测**：同一文件被 read 多次、同一命令重复执行、环境探测类命令（ls、git remote、echo $VAR）
-8. **数据膨胀点**：哪个 tool result 返回数据量最大（> 5K chars）
-9. **被中断位置**：超时时执行到了哪一步
+   - pane 有活动但 busy_check 返回 IDLE → P0（漏检导致误派发风险）
+   - pane 无活动但 busy_check 返回 BUSY → P1（误判导致任务延迟）
+6. **数据膨胀点**：哪个 tool result 返回数据量最大（> 5K chars）
+7. **被中断位置**：超时时执行到了哪一步
 
 ### Step 4 — 输出分析报告
 
@@ -185,12 +178,12 @@ python3 ~/.openclaw/workspace/skills/cron-log-review/scripts/analyze_runs.py --j
 
 ## 状态推进审计
 列出本轮所有 label 变更，逐条标注：
-- ✅ 合规 — 符合 coding-team-loop 规则
-- ❌ 违规 — 不符合规则，说明预期行为和实际行为的差异
-- ⚠️ 可疑 — 规则允许但上下文不合理（如 worker 还在忙就改了状态）
+- ✅ 合理 — 有对应的触发事件，状态流转正确
+- ❌ 不合理 — 无触发事件或状态矛盾
+- ⚠️ 可疑 — 不确定是否合理（如 worker 还在忙就改了状态）
 
 ## 派发决策审计
-列出本轮派发动作，验证优先级选择和 worker 分配是否正确
+列出本轮派发动作，判断是否派发了最应推进的 Issue
 
 ## 发现的问题
 按严重程度排序：
@@ -200,7 +193,7 @@ python3 ~/.openclaw/workspace/skills/cron-log-review/scripts/analyze_runs.py --j
 
 ## 优化建议
 每个问题对应具体的修改建议，标明：
-- 改什么文件（SKILL.md / refs/*.md / scripts/）
+- 改什么文件（SKILL.md / scripts/）
 - 预期效果
 
 ## 趋势观察

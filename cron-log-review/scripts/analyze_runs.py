@@ -414,18 +414,30 @@ def extract_issue_states_from_session(session_id: str) -> dict[int, dict]:
         except (json.JSONDecodeError, TypeError):
             continue
 
-    # Also detect dispatches
+    # Detect dispatches
     dispatched_issues: set[int] = set()
+    worker_busy = False
     for s in steps:
         if s["kind"] == "call" and s["name"] == "exec":
             cmd = s["args"].get("command", "")
             if "tmux_dispatch" in cmd or "send-keys" in cmd:
                 for m in re.finditer(r'#(\d+)', cmd):
                     dispatched_issues.add(int(m.group(1)))
+        # Detect busy_check result
+        if s["kind"] == "result":
+            content = s.get("content", "")
+            if "BUSY" in content and len(content) < 200:
+                worker_busy = True
 
     for num in dispatched_issues:
         if num in issue_states:
             issue_states[num]["dispatched"] = True
+
+    # Tag all in-progress issues with worker_busy status
+    if worker_busy:
+        for num, state in issue_states.items():
+            if "in-progress" in state.get("labels", []):
+                state["worker_busy"] = True
 
     return issue_states
 
@@ -491,6 +503,27 @@ def print_progress(runs: list[dict]) -> None:
 
         # Skip owner/shuzai issues (ball is in HUMAN's court)
         is_human_owned = "owner/shuzai" in label_sets[0] if label_sets else False
+
+        # Skip in-progress issues when worker is busy (actively executing)
+        latest_round = round_states[-1] if round_states else {}
+        is_worker_busy = latest_round.get(num, {}).get("worker_busy", False)
+        is_in_progress = "in-progress" in (label_sets[0] if label_sets else "")
+
+        if is_worker_busy and is_in_progress and all_same:
+            print(f"  {DIM}ℹ Issue #{num}: {title} — worker BUSY 执行中（{len(recent)} 轮，正常）{RESET}")
+            continue
+
+        # Skip epic issues (driven by sub-issues, not directly executed)
+        is_epic = "epic" in (label_sets[0] if label_sets else "")
+        if is_epic and all_same:
+            print(f"  {DIM}ℹ Issue #{num}: {title} — epic 由子 Issue 驱动（{len(recent)} 轮）{RESET}")
+            continue
+
+        # Skip pending issues waiting for dependencies
+        is_pending = "pending" in (label_sets[0] if label_sets else "")
+        if is_pending and all_same and dispatch_count == 0:
+            print(f"  {DIM}ℹ Issue #{num}: {title} — pending 排队中（{len(recent)} 轮）{RESET}")
+            continue
 
         if all_same and len(recent) >= 2 and not is_human_owned:
             has_problems = True
