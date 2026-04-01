@@ -25,4 +25,6 @@
 | 12 | P0 | 人工反馈 | tmux auto-create 只创建空 session 不启动 Claude | FIXED | tmux_dispatch.sh 增加进程检测+启动逻辑 |
 | 13 | P0 | 人工反馈 | 跨轮门禁阻止派发重试 | FIXED | SKILL.md 移除门禁，每轮必须重试 |
 | 14 | P0 | R4 轮询 | 飞书目标 ou_92eb... 返回 open_id cross app，应为 ou_c5bd... | FIXED | PR #17，SKILL.md 已恢复正确目标 |
-| 15 | P0 | R4 轮询 | Issue #69 连续 5 轮派发无 worker 产出 | OPEN | 根因（worker 不可达）已修复，需下轮观察 |
+| 15 | P0 | R4 轮询 | Issue #69 连续 5 轮派发无 worker 产出 | OPEN | 根因已修复；R5/R6 轮 worker=BUSY（正在执行），R7 轮 IDLE 后重新派发成功，待完成信号确认后关闭 |
+| 16 | P2 | R7 轮询 | 派发前重复 busy_check 调用（Step 4 + Step 6） | OPEN | 模型行为，同 #6 |
+| 17 | P0 | R8 轮询 | Epic #69 子任务完成信号误判为 epic 完成，被错误推进 verifying | FIXED | SKILL.md 明确 epic 不受评论完成信号影响；已回退 label |
