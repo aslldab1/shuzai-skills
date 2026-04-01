@@ -5,6 +5,16 @@ description: openclaw 协调 Claude 单 worker 开发循环。Claude 通过 Code
 
 # Coding Team Loop
 
+## 目标仓库
+
+**所有 `gh` 命令必须显式指定 `-R` 参数：**
+```
+REPO=aslldab1/Claw-Coach
+```
+示例：`gh issue list -R aslldab1/Claw-Coach ...`、`gh pr list -R aslldab1/Claw-Coach ...`
+
+> cron session 的工作目录不在目标仓库内，省略 `-R` 会导致查询返回空。
+
 ## 执行纪律
 
 - **refs/ 文件禁止预读**：遇到 `→ 需要时读取：refs/xxx.md` 标记时，只在执行到该分支且确认需要执行时才 read，未命中的分支不读。每轮通常只会命中 1-2 个 ref，全部预读是浪费。
