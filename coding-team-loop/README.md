@@ -1,6 +1,6 @@
 # coding-team-loop
 
-openclaw 协调 Claude + Codex 双 worker 开发循环。
+openclaw 协调 Claude 单 worker 开发循环。Claude 通过 Codex 插件调度 Codex 实现任务。
 
 ## 测试验证
 
@@ -10,7 +10,7 @@ openclaw 协调 Claude + Codex 双 worker 开发循环。
 
 | 套件 | 触发条件 | 说明 |
 |------|---------|------|
-| `core` | **每轮必跑** — 任何 SKILL.md 或 refs/ 变更 | 路由优先级、busy 检测、完成信号、双侧派发、handoff |
+| `core` | **每轮必跑** — 任何 SKILL.md 或 refs/ 变更 | 路由优先级、busy 检测、完成信号、派发、handoff |
 | `module:task-dispatch` | refs/task-dispatch.md 变更 | 派发格式、HUMAN 反馈检测、原型设计指令 |
 | `module:completion-signal` | SKILL.md 完成信号/子 Issue 联动部分变更 | 子 Issue 时序、死锁防护 |
 | `module:progress-confirm` | refs/progress-confirm.md 变更 | 重复发送防护、worker 回复处理 |

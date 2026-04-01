@@ -60,4 +60,4 @@ gh pr view {pr_number} --json reviews,comments
 **Claude CHANGES_REQUESTED：**
 1. Issue label：`needs-review` → `changes-requested`
 2. 留 【OPENCLAW】 评论，记录 review 结论时间
-3. 下轮 Step 3-P1 处理 fix 派发
+3. 下轮 Step 2-P3 处理 fix 派发

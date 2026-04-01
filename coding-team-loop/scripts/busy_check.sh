@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # busy_check.sh <session:win.pane>
 # Outputs: matched line + BUSY, or IDLE
+# Only used for Claude pane (Codex tasks dispatched via Claude's Codex plugin, no separate pane)
 # Uses Python regex for portability (grep -E behaves inconsistently across exec environments)
 set -euo pipefail
 

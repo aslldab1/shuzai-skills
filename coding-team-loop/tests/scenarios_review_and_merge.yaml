@@ -14,7 +14,6 @@
       body: "related to #42"
       review_state: none
   pane_claude: idle
-  pane_codex: idle
   expect:
     step2_action: review-and-merge
     dispatch_to: claude
@@ -34,7 +33,6 @@
       latest_review_at: "2026-03-26T10:00:00Z"
       latest_commit_at: "2026-03-26T11:00:00Z"
   pane_claude: idle
-  pane_codex: idle
   expect:
     step1_label_changes: ["changes-requested", "needs-review"]
     step2_action: review-and-merge
@@ -43,7 +41,7 @@
 
 - id: L03
   suite: core
-  name: "PR commit 时间 < review 时间：不推进，保持 changes-requested"
+  name: "PR commit 时间 < review 时间：不推进，Claude 通过 Codex 插件派发 fix"
   issues:
     - number: 42
       label: changes-requested
@@ -55,9 +53,8 @@
       latest_review_at: "2026-03-26T11:00:00Z"
       latest_commit_at: "2026-03-26T10:00:00Z"
   pane_claude: idle
-  pane_codex: idle
   expect:
     step1_label_changes: []
-    step3_action: fix-dispatch
-    dispatch_to: codex
+    step2_action: fix-dispatch
+    dispatch_to: claude
     message_contains: ["42"]

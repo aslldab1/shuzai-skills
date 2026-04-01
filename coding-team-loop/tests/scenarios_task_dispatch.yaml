@@ -4,33 +4,29 @@
 
 - id: C03
   suite: core
-  name: "Step 2-P5：有 pending+owner/claude Issue，Claude 空闲 → 派发开发任务"
+  name: "Step 2-P6：有 pending+owner/claude Issue，Claude 空闲 → 派发开发任务"
   issues:
     - number: 42
       label: pending
       owner_label: owner/claude
   open_prs: []
   pane_claude: idle
-  pane_codex: idle
   expect:
     step2_action: task-dispatch
     dispatch_to: claude
 
 - id: D02
   suite: core
-  name: "Step 3-P3：有 pending+owner/codex Issue，Codex 空闲 → 派发开发任务"
+  name: "Step 2-P7：有 pending+owner/codex Issue，Claude 空闲 → Claude 通过 Codex 插件派发"
   issues:
     - number: 42
       label: pending
       owner_label: owner/codex
   open_prs: []
   pane_claude: idle
-  pane_codex: idle
   expect:
-    step3_action: task-dispatch
-    dispatch_to: codex
-
-# K03 已删除：与 D02 完全重复（均测 pending+owner/codex 基本派发）
+    step2_action: task-dispatch
+    dispatch_to: claude
 
 - id: J02
   suite: module:task-dispatch
@@ -50,7 +46,6 @@
           createdAt: "2026-03-28T06:35:00Z"
   open_prs: []
   pane_claude: idle
-  pane_codex: idle
   expect:
     step2_action: task-dispatch
     dispatch_to: claude
@@ -71,7 +66,6 @@
           createdAt: "2026-03-29T05:08:00Z"
   open_prs: []
   pane_claude: idle
-  pane_codex: idle
   expect:
     step2_action: task-dispatch
     dispatch_to: claude
@@ -87,7 +81,6 @@
       owner_label: owner/claude
   open_prs: []
   pane_claude: idle
-  pane_codex: idle
   expect:
     step2_action: task-dispatch
     dispatch_to: claude
@@ -95,7 +88,7 @@
 
 - id: J06
   suite: module:task-dispatch
-  name: "综合判断：Issue 涉及产品原型设计 → 派发消息包含 stitch-prototype 指令（Codex）"
+  name: "综合判断：Issue 涉及产品原型设计（owner/codex）→ Claude 通过 Codex 插件派发，消息包含 stitch-prototype"
   issues:
     - number: 61
       title: "实现 wireframe 原型页面"
@@ -104,10 +97,9 @@
       owner_label: owner/codex
   open_prs: []
   pane_claude: idle
-  pane_codex: idle
   expect:
-    step3_action: task-dispatch
-    dispatch_to: codex
+    step2_action: task-dispatch
+    dispatch_to: claude
     message_contains: ["stitch-prototype"]
 
 - id: J07
@@ -121,7 +113,6 @@
       owner_label: owner/claude
   open_prs: []
   pane_claude: idle
-  pane_codex: idle
   expect:
     step2_action: task-dispatch
     dispatch_to: claude

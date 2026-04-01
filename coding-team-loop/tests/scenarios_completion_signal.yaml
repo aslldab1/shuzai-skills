@@ -22,7 +22,6 @@
     - number: 60
       body: "related to #54"
   pane_claude: idle
-  pane_codex: idle
   expect:
     step1_label_changes: ["in-progress -> verifying", "owner/shuzai"]
     step2_action: none
@@ -45,7 +44,6 @@
     - number: 45
       body: "related to #42"
   pane_claude: idle
-  pane_codex: idle
   expect:
     step1_label_changes: ["in-progress -> needs-review"]
     step2_action: review-and-merge
@@ -69,7 +67,6 @@
     - number: 59
       body: "related to #58"
   pane_claude: idle
-  pane_codex: idle
   expect:
     step1_label_changes: ["in-progress -> verifying"]
     step2_action: deliverable-verify
@@ -92,7 +89,6 @@
           createdAt: "2026-03-30T09:05:00Z"
   open_prs: []
   pane_claude: busy
-  pane_codex: idle
   expect:
     step1_label_changes: []
     step2_action: none
@@ -136,7 +132,6 @@
     - number: 60
       body: "related to #54"
   pane_claude: idle
-  pane_codex: idle
   expect:
     step1_label_changes: ["in-progress -> verifying", "owner/shuzai"]
     step2_action: none
@@ -173,7 +168,6 @@
       body: "related to #54"
   open_prs: []
   pane_claude: busy
-  pane_codex: idle
   expect:
     step1_label_changes: []
     step2_action: none
@@ -181,7 +175,7 @@
 
 - id: CS07
   suite: module:completion-signal
-  name: "无 dispatch 评论 + 有子 Issue → 保守忽略完成信号"
+  name: "无 dispatch 评论 + 有子 Issue → 保守忽略完成信号，无动作（异常状态）"
   issues:
     - number: 54
       label: in-progress
@@ -197,11 +191,10 @@
       body: "related to #54"
   open_prs: []
   pane_claude: idle
-  pane_codex: idle
   expect:
     step1_label_changes: []
-    step2_action: progress-confirm
-    dispatch_to: claude
+    step2_action: none
+    dispatch_to: none
 
 # ── Memory 持久化场景 ─────────────────────────────────────────────
 
@@ -216,11 +209,9 @@
       label: in-progress
       owner_label: owner/claude
   pane_claude: idle
-  pane_codex: idle
   expect:
     step1_label_changes: []
     step2_action: none
-    step3_action: none
     dispatch_to: none
     reason: "run_lock"
 
@@ -241,7 +232,6 @@
     - number: 10
       body: "related to #42"
   pane_claude: idle
-  pane_codex: idle
   expect:
     step2_action: review-and-merge
     dispatch_to: claude

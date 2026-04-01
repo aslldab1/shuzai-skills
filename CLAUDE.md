@@ -7,7 +7,7 @@
 ```
 shuzai-skills/
 ├── CLAUDE.md               # 本文件，说明安装规则和开发规范
-├── coding-team-loop/       # OpenClaw 双 worker 开发循环 skill
+├── coding-team-loop/       # OpenClaw 单 worker 开发循环 skill（Claude 通过 Codex 插件调度）
 │   └── SKILL.md
 ├── cron-log-review/        # OpenClaw cron 定时任务日志分析 skill
 │   └── SKILL.md
@@ -34,7 +34,7 @@ ls -la ~/.claude/skills/
 | Skill | 触发命令 | 说明 |
 |-------|---------|------|
 | stitch-prototype | `/stitch-prototype` | 使用 Google Stitch MCP 进行产品原型设计，包含需求确认、Screen 生成、验收交付全流程 |
-| coding-team-loop | `/coding-team-loop` | OpenClaw 协调 Claude + Codex 双 worker 开发循环，以 GitHub Issues 为任务数据库 |
+| coding-team-loop | `/coding-team-loop` | OpenClaw 协调 Claude 单 worker 开发循环，Claude 通过 Codex 插件调度 Codex 任务，以 GitHub Issues 为任务数据库 |
 | cron-log-review | `/cron-log-review` | 分析 OpenClaw cron 定时任务的执行日志，重点检查状态推进错误和流程执行问题 |
 
 ## Skill 开发规范
@@ -70,7 +70,7 @@ python3 scripts/validate_skill.py --scenario CS01 --verbose
 
 | 套件 | 触发条件 | 说明 |
 |------|---------|------|
-| `core` | 每轮必跑 | 路由优先级、busy 检测、完成信号、双侧派发、handoff |
+| `core` | 每轮必跑 | 路由优先级、busy 检测、完成信号、派发、handoff |
 | `module:task-dispatch` | refs/task-dispatch.md 变更 | 派发格式、HUMAN 反馈检测、原型设计指令 |
 | `module:completion-signal` | SKILL.md 完成信号部分变更 | 子 Issue 时序、死锁防护 |
 | `module:progress-confirm` | refs/progress-confirm.md 变更 | 重复发送防护、worker 回复处理 |

@@ -4,7 +4,7 @@
 
 - id: ST01
   suite: module:session-recovery
-  name: "Stale 自愈：in-progress + 20分钟无活动 + worker 空闲 → 发进度确认"
+  name: "Stale 自愈：in-progress + owner/codex + 20分钟无活动 + Claude 空闲 → Claude 确认进度"
   issues:
     - number: 42
       label: in-progress
@@ -15,15 +15,14 @@
       last_activity_minutes_ago: 25
   open_prs: []
   pane_claude: idle
-  pane_codex: idle
   expect:
-    step3_action: progress-confirm
-    dispatch_to: codex
+    step2_action: progress-confirm
+    dispatch_to: claude
     message_contains: ["42"]
 
 - id: ST02
   suite: module:session-recovery
-  name: "Stale 检测不误触：Codex 忙碌中，不触发进度确认"
+  name: "Stale 检测不误触：Claude 忙碌中，不触发进度确认（即使 owner/codex stale）"
   issues:
     - number: 42
       label: in-progress
@@ -31,8 +30,7 @@
       last_activity_minutes_ago: 25
   open_prs: []
   existing_branches: []
-  pane_claude: idle
-  pane_codex: busy
+  pane_claude: busy
   expect:
-    step3_action: none
+    step2_action: none
     dispatch_to: none
