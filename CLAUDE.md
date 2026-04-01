@@ -7,7 +7,9 @@
 ```
 shuzai-skills/
 ├── CLAUDE.md               # 本文件，说明安装规则和开发规范
-├── coding-team-loop/       # OpenClaw 单 worker 开发循环 skill（Claude 通过 Codex 插件调度）
+├── coding-team-loop/       # OpenClaw 开发循环 skill v1（规则驱动，350+ 行状态机）
+│   └── SKILL.md
+├── dev-loop/               # OpenClaw 开发循环 skill v2（极简版，目标+约束驱动）
 │   └── SKILL.md
 ├── cron-log-review/        # OpenClaw cron 定时任务日志分析 skill
 │   └── SKILL.md
@@ -40,7 +42,8 @@ ls -la ~/.claude/skills/
 | Skill | 触发命令 | 说明 |
 |-------|---------|------|
 | stitch-prototype | `/stitch-prototype` | 使用 Google Stitch MCP 进行产品原型设计，包含需求确认、Screen 生成、验收交付全流程 |
-| coding-team-loop | `/coding-team-loop` | OpenClaw 协调 Claude 单 worker 开发循环，Claude 通过 Codex 插件调度 Codex 任务，以 GitHub Issues 为任务数据库 |
+| coding-team-loop | `/coding-team-loop` | OpenClaw 开发循环 v1（规则驱动，350+ 行状态机） |
+| dev-loop | `/dev-loop` | OpenClaw 开发循环 v2（极简版，~100 行，目标+约束驱动） |
 | cron-log-review | `/cron-log-review` | 分析 OpenClaw cron 定时任务的执行日志，重点检查状态推进错误和流程执行问题 |
 | validator | 由 coding-team-loop 派发 | AI 产出物验收：视觉质量分析、用户旅程验证、交互测试、设计稿对比 |
 | validator-eval | `/validator-eval` | 评测 validator 验收质量：三阶段执行审计、截图分析率、用户旅程覆盖、视觉检测能力 |
@@ -54,6 +57,14 @@ openclaw message send --channel feishu --target "ou_c5bd4c88f78cbf338f76dbb5e8f6
 ```
 
 通知内容应简明扼要，包含：完成了什么、当前状态、是否需要用户操作。
+
+## Skill 文件隔离规则
+
+**不同 skill 之间文件完全隔离，禁止复用：**
+- 禁止用软连接（`ln -s`）引用其他 skill 的文件
+- 每个 skill 的脚本、refs、配置必须独立存放在自己目录下
+- 即使逻辑相同，也要各自持有独立副本
+- 原因：skill 独立演进，修改一个不应影响另一个
 
 ## Skill 开发规范
 
