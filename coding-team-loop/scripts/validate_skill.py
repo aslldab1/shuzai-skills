@@ -120,6 +120,7 @@ def call_openclaw(prompt: str, session_id: str) -> str:
         [
             "node", OPENCLAW_BIN,
             "agent",
+            "--local",
             "--session-id", session_id,
             "--message", prompt,
             "--json",
