@@ -223,6 +223,38 @@ gh issue create -R {repo} \
 > openclaw 只通过 GitHub Issue label（`pending + owner/codex`）发现并派发 Codex 任务。
 > 只写 QUEUE.md 会导致 Codex 任务永远不会被自动派发。
 
+## P8 路由消息格式
+
+适用于 Step 2-P8（Issue 无 owner label，需要 Claude 路由决策）。
+
+**派发消息格式：**
+```
+【OPENCLAW】【路由请求】
+Issue #{N}：{Issue标题}
+链接：{Issue URL}
+
+需求描述：
+{Issue 正文}
+
+请评估此 Issue 并做路由决策：
+
+**方案 A — 小任务（可由单个 worker 完成）：**
+- 决定 owner: owner/claude（需要设计/review/验收）或 owner/codex（纯开发实现）
+- 在 Issue 写完成信号：`【CLAUDE】【完成】路由决策: owner/{claude或codex}`
+
+**方案 B — 大需求（需要拆解子 Issue）：**
+- 分析需求，拆分为可独立执行的子 Issue
+- 每个子 Issue 必须通过 gh issue create 创建，且必须包含：
+  --label "pending" --label "owner/{claude或codex}"
+  body 中必须包含 `related to #{父Issue编号}`
+- 在父 Issue 写完成信号：`【CLAUDE】【完成】已拆解为 epic，子 Issue: #{a}, #{b}, #{c}`
+
+⚠️ 禁止执行 gh issue edit / gh issue close —— 所有状态推进由 openclaw 自动处理。
+⚠️ 子 Issue 缺少 pending label 会导致无法被自动派发，必须确保每个子 Issue 都有 pending + owner label。
+```
+
+**派发动作（与 P6/P7 相同，遵守派发动作协议）。**
+
 ## 中断恢复派发
 
 Step 1 检测到 stale in-progress 且有对应分支时，改用恢复消息：
