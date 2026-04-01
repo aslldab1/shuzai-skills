@@ -125,7 +125,21 @@ python3 ~/.openclaw/workspace/skills/cron-log-review/scripts/analyze_runs.py --j
 
 **分析维度：**
 
-1. **状态推进正确性**（最重要）：
+1. **跨轮任务推进有效性**（最重要，P0 级别）：
+   - 对比最近 N 轮的 summary 和 Issue 状态，检测是否有 Issue 卡死：
+     - 同一 Issue 连续 ≥ 2 轮处于相同状态（如一直 `in-progress`）且无新评论/PR/commit → **P0 任务卡死**
+     - 连续 ≥ 2 轮执行相同的派发动作（对同一 Issue 重复派发）→ **P0 无效重复**
+     - 派发后 worker 无任何产出（无新评论、无新 commit、无 PR）→ **P0 派发失效**
+   - 检测方式：
+     ```bash
+     # 比对最近 N 轮 summary 中提到的 Issue 编号和状态
+     python3 analyze_runs.py --job {name} --last 3 --progress
+     ```
+   - 子 Issue 完整性检查：
+     - 子 Issue 是否有 `pending` label（缺少则不会被自动派发）
+     - 子 Issue body 是否含 `related to #N`（缺少则父子关联断裂）
+
+2. **状态推进正确性**：
    - 提取所有 `gh issue edit --add-label / --remove-label` 调用，还原 label 变更链
    - 对照 coding-team-loop 规则验证每次 label 变更是否合法：
      - `pending → in-progress`：必须在派发动作之后
@@ -134,29 +148,38 @@ python3 ~/.openclaw/workspace/skills/cron-log-review/scripts/analyze_runs.py --j
      - `verifying → pending`：必须有 HUMAN 反馈（owner/shuzai 流程）
      - `changes-requested → needs-review`：必须 PR 有新 commit
    - 标记违规的状态推进为 P0 问题
-2. **派发决策合理性**：
+3. **派发决策合理性**：
    - 提取 `tmux_dispatch.sh` 调用和 `gh issue comment` 中的派发消息
    - 验证：是否选了正确的优先级分支（P1 > P2 > ... ），派给了正确的 worker
    - 检查是否有重复派发（同一 Issue 在同一轮被派发两次）
-3. **操作顺序**：
+4. **操作顺序**：
    - 派发前是否先做了 busy_check
    - label 变更前是否先写了 【OPENCLAW】 评论
    - dispatch 失败后是否回滚了 label
-4. **busy_check 交叉验证**（P0 级别）：
+5. **busy_check 交叉验证**（P0 级别）：
    - 将 busy_check 脚本返回值与 pane 实际输出内容做对比
    - 如果 pane 中有明显活动迹象（thinking、Running、工具调用输出、生成中等）但 busy_check 返回 IDLE → P0 问题（脚本漏检导致误派发风险）
    - 如果 pane 无活动但 busy_check 返回 BUSY → P1 问题（脚本误判导致任务延迟）
    - 检查方式：对比 `tmux capture-pane` 原始输出与 busy_check.sh 返回值，不能只看脚本返回值就下结论
-5. **执行阶段划分**：把 tool calls 按逻辑分为环境探测 / 信号读取 / 判断决策 / 执行动作 / 报告输出
-5. **冗余检测**：同一文件被 read 多次、同一命令重复执行、环境探测类命令（ls、git remote、echo $VAR）
-6. **数据膨胀点**：哪个 tool result 返回数据量最大（> 5K chars）
-7. **被中断位置**：超时时执行到了哪一步
+6. **执行阶段划分**：把 tool calls 按逻辑分为环境探测 / 信号读取 / 判断决策 / 执行动作 / 报告输出
+7. **冗余检测**：同一文件被 read 多次、同一命令重复执行、环境探测类命令（ls、git remote、echo $VAR）
+8. **数据膨胀点**：哪个 tool result 返回数据量最大（> 5K chars）
+9. **被中断位置**：超时时执行到了哪一步
 
 ### Step 4 — 输出分析报告
 
 按以下结构输出：
 
 ```
+## 任务推进有效性（最先输出，最高优先级）
+对比最近 N 轮执行，逐个 Issue 列出：
+- Issue 编号、当前状态、已持续轮数
+- 是否有新产出（评论/PR/commit）
+- ❌ 卡死 — 连续 ≥ 2 轮相同状态且无新产出 → P0
+- ❌ 重复派发 — 连续对同一 Issue 做相同派发动作 → P0
+- ❌ 子 Issue 缺 label — 缺少 pending label 导致无法自动派发 → P0
+- ✅ 正常推进 — 状态有变化或有新产出
+
 ## 运行概览
 最近 {N} 次执行统计表格
 
@@ -171,7 +194,7 @@ python3 ~/.openclaw/workspace/skills/cron-log-review/scripts/analyze_runs.py --j
 
 ## 发现的问题
 按严重程度排序：
-- P0: 状态推进错误、误派发（影响任务正确性）
+- P0: 任务卡死、状态推进错误、误派发（影响任务正确性和推进）
 - P1: 超时/执行失败（影响任务完成）
 - P2: 效率问题（冗余步骤、数据膨胀）
 

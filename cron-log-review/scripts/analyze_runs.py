@@ -383,6 +383,144 @@ def print_steps(steps: list[dict], verbose: bool = False, focus_step: int = 0):
             print(f"  Step {sn}: {cmd}")
 
 
+def extract_issue_states_from_session(session_id: str) -> dict[int, dict]:
+    """Parse gh issue list results from a session to get Issue states."""
+    import re
+    steps = parse_session_steps(session_id)
+    issue_states: dict[int, dict] = {}
+
+    for i, s in enumerate(steps):
+        if s["kind"] != "result":
+            continue
+        content = s.get("content", "")
+        # Try to parse JSON array from gh issue list results
+        if not content.strip().startswith("["):
+            continue
+        try:
+            issues = json.loads(content)
+            if not isinstance(issues, list):
+                continue
+            for issue in issues:
+                if not isinstance(issue, dict) or "number" not in issue:
+                    continue
+                num = issue["number"]
+                labels = [l.get("name", "") if isinstance(l, dict) else str(l)
+                          for l in issue.get("labels", [])]
+                issue_states[num] = {
+                    "title": issue.get("title", ""),
+                    "labels": labels,
+                    "label_str": "+".join(sorted(labels)),
+                }
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+    # Also detect dispatches
+    dispatched_issues: set[int] = set()
+    for s in steps:
+        if s["kind"] == "call" and s["name"] == "exec":
+            cmd = s["args"].get("command", "")
+            if "tmux_dispatch" in cmd or "send-keys" in cmd:
+                for m in re.finditer(r'#(\d+)', cmd):
+                    dispatched_issues.add(int(m.group(1)))
+
+    for num in dispatched_issues:
+        if num in issue_states:
+            issue_states[num]["dispatched"] = True
+
+    return issue_states
+
+
+def print_progress(runs: list[dict]) -> None:
+    """Cross-round progress analysis: detect stuck issues and repeated dispatches."""
+    if len(runs) < 2:
+        print(f"\n{YELLOW}需要至少 2 轮数据才能做跨轮推进分析{RESET}")
+        return
+
+    print(f"\n{BOLD}任务推进有效性（跨轮分析，最近 {len(runs)} 轮）{RESET}\n")
+
+    # Collect Issue states per round from session data
+    round_states: list[dict[int, dict]] = []  # [{issue_num: {labels, dispatched, ...}}]
+    round_meta: list[dict] = []  # [{ts, session}]
+
+    for run in runs:
+        sid = run.get("sessionId")
+        ts = fmt_ts(run.get("ts", 0))
+        if not sid:
+            round_states.append({})
+            round_meta.append({"ts": ts, "session": "?"})
+            continue
+        states = extract_issue_states_from_session(sid)
+        round_states.append(states)
+        round_meta.append({"ts": ts, "session": sid[:8]})
+
+    # Aggregate all Issues seen across rounds
+    all_issues: set[int] = set()
+    for states in round_states:
+        all_issues.update(states.keys())
+
+    if not all_issues:
+        print(f"  {YELLOW}未从 session 中解析到 Issue 数据（可能 gh issue list 返回为空）{RESET}\n")
+        return
+
+    has_problems = False
+
+    for num in sorted(all_issues):
+        appearances = []
+        for idx, states in enumerate(round_states):
+            if num in states:
+                appearances.append({
+                    "round": idx + 1,
+                    "ts": round_meta[idx]["ts"],
+                    "labels": states[num].get("label_str", ""),
+                    "dispatched": states[num].get("dispatched", False),
+                    "title": states[num].get("title", ""),
+                })
+
+        if len(appearances) < 2:
+            continue
+
+        # Check if labels are the same across consecutive rounds (stuck)
+        recent = appearances[-3:] if len(appearances) >= 3 else appearances
+        label_sets = [a["labels"] for a in recent]
+        all_same = len(set(label_sets)) == 1 and label_sets[0]
+
+        # Check if dispatched multiple times
+        dispatch_count = sum(1 for a in appearances if a["dispatched"])
+
+        title = appearances[0].get("title", "")[:50]
+
+        # Skip owner/shuzai issues (ball is in HUMAN's court)
+        is_human_owned = "owner/shuzai" in label_sets[0] if label_sets else False
+
+        if all_same and len(recent) >= 2 and not is_human_owned:
+            has_problems = True
+            print(f"  {RED}❌ Issue #{num}: {title}{RESET}")
+            print(f"     状态: {label_sets[0]}")
+            print(f"     连续 {len(recent)} 轮无变化 → P0 任务卡死")
+            for a in recent:
+                disp = " [已派发]" if a["dispatched"] else ""
+                print(f"     {a['ts']}: {a['labels']}{disp}")
+            if dispatch_count >= 2:
+                print(f"     {RED}重复派发 {dispatch_count} 次 → P0 无效重复{RESET}")
+            print()
+
+        elif all_same and len(recent) >= 2 and is_human_owned:
+            # Not a problem, just informational
+            print(f"  {DIM}ℹ Issue #{num}: {title} — owner/shuzai 等待 HUMAN 操作（{len(recent)} 轮）{RESET}")
+
+        elif dispatch_count >= 2:
+            has_problems = True
+            print(f"  {RED}❌ Issue #{num}: {title}{RESET}")
+            print(f"     在 {dispatch_count} 轮中被重复派发 → P0 派发失效（worker 未产出）")
+            for a in appearances:
+                if a["dispatched"]:
+                    print(f"     {a['ts']}: {a['labels']} [派发]")
+            print()
+
+    if not has_problems:
+        print(f"  {GREEN}✅ 所有 Issue 状态正常推进{RESET}\n")
+
+
 def list_jobs():
     jobs = load_jobs()
     print(f"\n{BOLD}Cron Jobs{RESET}\n")
@@ -410,6 +548,7 @@ def main():
     parser.add_argument("--steps", action="store_true", help="输出执行步骤详情")
     parser.add_argument("--step", type=int, default=0, help="查看指定步骤的完整入参和返回内容")
     parser.add_argument("--verbose", action="store_true", help="显示所有步骤的完整入参和返回内容")
+    parser.add_argument("--progress", action="store_true", help="跨轮任务推进有效性分析")
     parser.add_argument("--list-jobs", action="store_true", help="列出所有 cron jobs")
     args = parser.parse_args()
 
@@ -439,6 +578,9 @@ def main():
 
     runs = load_runs(job_id, args.last)
     print_overview(runs, timeout)
+
+    if args.progress and runs:
+        print_progress(runs)
 
     if (args.steps or args.step or args.verbose) and runs:
         # Find latest run with session
