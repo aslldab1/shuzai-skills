@@ -216,6 +216,27 @@ bash scripts/busy_check.sh {claude_pane}
 **P9** — 以上均无
 → 本轮无动作
 
+#### 派发动作协议（P6/P7/P8 命中时必须遵守）
+
+**顺序严格固定，不可颠倒：**
+
+```
+第 1 步：gh issue comment  ← 最先执行，写 【OPENCLAW】 派发评论
+第 2 步：gh issue edit      ← 更新 label（in-progress）
+第 3 步：tmux 派发          ← 必须用脚本，禁止裸 send-keys
+第 4 步：写 memory          ← 最后执行
+```
+
+**第 3 步 tmux 派发的唯一合法方式：**
+```bash
+bash scripts/tmux_dispatch.sh {claude_pane} "{payload}"
+```
+- 返回 `dispatch=submitted` → 正常
+- 返回 `dispatch=failed` → 本轮立即停止，计入失败计数
+- **禁止**：`tmux send-keys`、`tmux paste-buffer`、`tmux load-buffer` 等任何绕过脚本的方式
+
+**派发消息格式必须使用 refs/task-dispatch.md 中的标准模板**（含 Issue URL、需求描述、验收标准、步骤①②③④⑤），不得自行简化。
+
 ### Step 1.5 — Codex 子任务孤儿检测（Codex Orphan Recovery）
 
 **触发条件：** Step 1 完成后，**对每个** `in-progress + owner/claude` 的 Issue **独立**检测其最近 10 条评论，判断 Claude 是否已规划但尚未建 Issue 的 Codex 子任务。
