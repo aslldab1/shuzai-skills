@@ -11,8 +11,14 @@ shuzai-skills/
 │   └── SKILL.md
 ├── cron-log-review/        # OpenClaw cron 定时任务日志分析 skill
 │   └── SKILL.md
-└── stitch-prototype/       # Google Stitch 产品原型设计 skill
-    └── SKILL.md
+├── stitch-prototype/       # Google Stitch 产品原型设计 skill
+│   └── SKILL.md
+├── validator/              # AI 产出物验收 skill（视觉+用户旅程+交互）
+│   ├── SKILL.md
+│   └── refs/
+└── validator-eval/         # Validator 验收质量评测 skill
+    ├── SKILL.md
+    └── scripts/analyze_runs.py
 ```
 
 ## 安装规则
@@ -36,6 +42,18 @@ ls -la ~/.claude/skills/
 | stitch-prototype | `/stitch-prototype` | 使用 Google Stitch MCP 进行产品原型设计，包含需求确认、Screen 生成、验收交付全流程 |
 | coding-team-loop | `/coding-team-loop` | OpenClaw 协调 Claude + Codex 双 worker 开发循环，以 GitHub Issues 为任务数据库 |
 | cron-log-review | `/cron-log-review` | 分析 OpenClaw cron 定时任务的执行日志，重点检查状态推进错误和流程执行问题 |
+| validator | 由 coding-team-loop 派发 | AI 产出物验收：视觉质量分析、用户旅程验证、交互测试、设计稿对比 |
+| validator-eval | `/validator-eval` | 评测 validator 验收质量：三阶段执行审计、截图分析率、用户旅程覆盖、视觉检测能力 |
+
+## 飞书通知规则
+
+每次开发任务完成、进入等待用户指令的状态时，必须通过 openclaw 发送飞书消息通知用户：
+
+```bash
+openclaw message send --channel feishu --target "ou_c5bd4c88f78cbf338f76dbb5e8f64fed" -m "通知内容"
+```
+
+通知内容应简明扼要，包含：完成了什么、当前状态、是否需要用户操作。
 
 ## Skill 开发规范
 
