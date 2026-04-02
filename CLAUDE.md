@@ -95,6 +95,16 @@ python3 scripts/validate_skill.py --suite task-dispatch
 python3 scripts/validate_skill.py --scenario CS01 --verbose
 ```
 
+### 合并规则
+
+**单测通过后立即合并到 main：**
+
+```bash
+gh pr merge <PR编号> --merge --repo aslldab1/shuzai-skills
+```
+
+合并后 `/Users/lin/workspace/AI/git/shuzai-skills` 会通过 hook 自动 pull，新内容立即生效。禁止在分支上长期停留等待用户手动合并。
+
 ### 场景套件说明
 
 | 套件 | 触发条件 | 说明 |
