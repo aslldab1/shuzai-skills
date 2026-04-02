@@ -15,7 +15,7 @@ allowed_tools: Bash, Read, Write, WebFetch, WebSearch, Agent
 
 ## 执行步骤
 
-每轮执行固定 4 步，按顺序执行，不跳步。
+每轮执行固定 5 步，按顺序执行，不跳步。
 
 ### Step 1：收集本地使用数据（OpenClaw）
 
@@ -35,7 +35,28 @@ python3 $SKILL_DIR/scripts/collect_usage_data.py \
 - **projects**: 活跃项目元数据
 - **sessions**: 会话文件统计
 
-### Step 2：搜索外部最佳实践（Claude）
+### Step 2：历史感知 + 搜索规划（Claude）
+
+1. 读取 `usage-review/data/` 下所有 `insights_*.json` 文件，汇总历史建议：
+   ```bash
+   ls ~/workspace/AI/git/shuzai-skills/usage-review/data/insights_*.json 2>/dev/null
+   ```
+   对每个文件，提取 `recommendations[].title` 和 `recommendations[].description`。
+
+2. 构建 **已覆盖话题清单**：将历史建议按方向归类（如"工具使用"、"会话管理"、"并行能力"、"配置优化"等），记录每个方向被推荐的次数。
+
+3. 对比 Step 1 的 `usage_data.json`，识别 **本周关注方向**：
+   - 偏离健康范围（参见 refs/analysis-framework.md）且历史推荐次数最少的指标 → 优先
+   - 历史推荐过但指标恶化的方向 → 可换角度再推
+   - 历史推荐过且指标已达标的方向 → 排除
+
+4. 基于本周关注方向，动态生成 **5 个搜索关键词**，规则参见 → [refs/external-sources.md](refs/external-sources.md)
+
+产出：已覆盖话题清单 + 5 个搜索关键词（不写文件，作为上下文传递给 Step 3）。
+
+### Step 3：搜索外部资料（Claude）
+
+使用 Step 2 产出的 5 个搜索关键词执行搜索。搜索来源不变，但关键词由 Step 2 动态决定。
 
 从以下来源搜索最新的 AI 辅助编程经验和最佳实践：
 
@@ -49,16 +70,17 @@ python3 $SKILL_DIR/scripts/collect_usage_data.py \
 
 产出：结构化的最佳实践摘要，包含来源 URL 和关键洞察。
 
-### Step 3：对比分析并生成建议（Claude）
+### Step 4：对比分析并生成建议（Claude）
 
-将 Step 1 的使用数据与 Step 2 的外部经验对比，从以下维度分析：
+将 Step 1 的使用数据与 Step 3 的外部资料对比，从以下维度分析：
 
 分析框架参见 → [refs/analysis-framework.md](refs/analysis-framework.md)
 
-**去重：** 生成建议前，先读取 `usage-review/data/` 下已有的 `insights_*.json` 文件，汇总过往已提供的建议 ID 和标题。本次生成的建议应：
-- 跳过与过往建议**标题和核心内容重复**的条目
-- 如果某条过往建议对应的指标已明显改善，可以作为「已改善」在 strengths 中提及
-- 如果某条过往建议的指标没有变化或恶化，可以**换个角度重新推荐**（不同的 playbook），但不要原样重复
+**去重：** Step 2 已完成历史建议分析。本步骤直接使用 Step 2 的已覆盖话题清单，遵守以下规则：
+- 已覆盖且指标达标的方向 → 在 strengths 中作为「已改善」提及，不再推荐
+- 已覆盖但指标恶化的方向 → 从新角度推荐（不同的切入点和操作建议）
+- 未覆盖的方向 → 优先推荐
+- 每条建议必须包含具体的操作手册（步骤、示例、衡量标准），由 Claude 基于外部资料和使用数据动态生成，不使用预设模板
 
 产出：`insights_<DATE>.json`，写入 `usage-review/data/insights_<DATE>.json`，格式：
 
@@ -87,7 +109,7 @@ python3 $SKILL_DIR/scripts/collect_usage_data.py \
 }
 ```
 
-### Step 4：生成报告并通知（OpenClaw + Claude）
+### Step 5：生成报告并通知（OpenClaw + Claude）
 
 1. 生成 HTML 报告：
 

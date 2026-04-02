@@ -53,21 +53,22 @@
 
 ---
 
-## 操作手册标准
+## 操作手册要求
 
-**每条建议必须包含操作手册**，格式要求：
+每条建议必须包含操作手册，由 Claude 基于 Step 3 搜索到的外部资料和 Step 1 的使用数据动态生成。不使用预设模板。
+
+操作手册格式：
 
 ```json
 {
   "title": "建议标题",
   "description": "问题描述 + 为什么重要",
   "your_value": "用户当前数值",
-  "best_practice": "社区推荐标准",
-  "action": "一句话总结",
+  "best_practice": "来自外部资料的推荐标准（附来源）",
   "playbook": {
     "steps": [
       {
-        "do": "具体操作（要打开什么、输入什么命令、改什么文件）",
+        "do": "具体操作",
         "example": "完整的命令或代码示例",
         "expect": "操作后应该看到什么结果"
       }
@@ -81,164 +82,4 @@
 }
 ```
 
-### 各改进方向的操作手册模板
-
-#### A. 降低 Bash 比率
-
-```
-步骤：
-1. 在 CLAUDE.md 中添加规则
-   打开: ~/.claude/CLAUDE.md
-   追加:
-     ## Tool Usage Rules
-     - 读取文件内容时使用 Read tool，不要用 cat/head/tail
-     - 搜索文件时使用 Glob tool，不要用 find/ls
-     - 搜索文件内容时使用 Grep tool，不要用 grep/rg
-     - 编辑文件时使用 Edit tool，不要用 sed/awk
-
-改进前 → 改进后：
-  Before: Bash("cat src/app.ts | head -20")
-  After:  Read("src/app.ts", limit=20)
-
-  Before: Bash("grep -r 'TODO' src/")
-  After:  Grep(pattern="TODO", path="src/")
-
-  Before: Bash("find . -name '*.test.ts'")
-  After:  Glob(pattern="**/*.test.ts")
-
-衡量: 下周 Bash 比率应从 58% 降至 < 45%
-```
-
-#### B. 利用 Agent 并行
-
-```
-步骤：
-1. 识别可并行的场景
-   - 需要在多个目录搜索不同内容时
-   - 需要同时跑测试 + 做代码审查时
-   - 需要调研多个方案进行比较时
-
-2. 在提示中明确要求并行
-   输入: "帮我并行做这三件事：1) 搜索所有 TODO 注释 2) 检查测试覆盖率 3) 审查最近 3 个 commit 的安全性"
-
-3. 使用 background agent
-   输入: "用 background agent 跑测试，同时你继续帮我写代码"
-
-改进前 → 改进后：
-  Before: "先搜索 auth 模块的所有文件" → 等结果 → "再搜索 api 模块" → 等结果
-  After:  "并行搜索 auth 和 api 模块中所有包含 validateToken 的文件"
-
-  Before: 一条一条串行执行代码审查
-  After:  "同时启动 3 个 agent：1) security-reviewer 审查安全 2) code-reviewer 审查质量 3) 跑 pytest"
-
-衡量: 下周 Agent 比率应从 1.1% 提升至 > 5%
-```
-
-#### C. 缩短会话 / 减少压缩
-
-```
-步骤：
-1. 单任务完成后清理上下文
-   完成一个功能后输入: /clear
-   或者直接开新会话: claude（新终端标签）
-
-2. 用命名会话管理不同任务
-   输入: claude --session "feature-auth"
-   切换: claude --resume "feature-auth"
-   新任务: claude --session "bugfix-login"
-
-3. 大任务拆分为子任务
-   不要: "帮我重构整个 auth 模块并加测试并更新文档"
-   而是分 3 个会话:
-     会话1: "重构 auth 模块的数据层"
-     会话2: "给重构后的 auth 模块补测试"
-     会话3: "更新 auth 模块的文档"
-
-改进前 → 改进后：
-  Before: 一个会话跑 4 小时，压缩 3 次，后期输出质量下降
-  After:  3 个 focused 会话各 40 分钟，0 次压缩，输出质量稳定
-
-衡量: 下周压缩/会话比应从 0.9 降至 < 0.5
-```
-
-#### D. 前端设计闭环
-
-```
-步骤：
-1. 需求 → Stitch 原型
-   输入: "/stitch-prototype 设计订单列表页，包含筛选、排序、分页"
-   期望: Stitch 生成可交互的 screen
-
-2. 原型 → 代码实现
-   输入: "参考 Stitch screen #XX 实现前端页面，使用 React + TailwindCSS"
-   期望: 生成与原型一致的代码
-
-3. 代码 → Playwright 截图验收
-   输入: "用 Playwright 打开 localhost:3000/orders，截图与 Stitch 原型对比"
-   期望: 截图显示页面与原型基本一致
-
-4. 差异 → 迭代修复
-   输入: "截图与原型对比，导航栏颜色不对，修复它"
-   期望: 修复后再次截图确认
-
-改进前 → 改进后：
-  Before: Stitch 出图 → 手动实现 → 手动截图 → 手动对比 → 来回沟通
-  After:  Stitch 出图 → Claude 实现 → Playwright 自动截图验收 → 自动迭代
-
-衡量: 前端任务的来回修改次数减少 50%
-```
-
-#### E. Git Worktree 并行开发
-
-```
-步骤：
-1. 创建 worktree
-   终端输入:
-     git worktree add ../my-project-feature-a feature-a
-     git worktree add ../my-project-feature-b feature-b
-
-2. 每个 worktree 启动独立 Claude 会话
-   终端 Tab 1: cd ../my-project-feature-a && claude
-   终端 Tab 2: cd ../my-project-feature-b && claude
-
-3. 独立开发，互不干扰
-   Tab 1 的 Claude 只看到 feature-a 的代码
-   Tab 2 的 Claude 只看到 feature-b 的代码
-
-4. 完成后清理
-   git worktree remove ../my-project-feature-a
-
-改进前 → 改进后：
-  Before: feature-a 做完 → 切分支 → feature-b 做完 → 串行耗时 2 小时
-  After:  feature-a 和 feature-b 同时进行 → 并行耗时 1 小时
-
-衡量: 同时进行的独立任务数 > 2
-```
-
-#### F. CLAUDE.md 持续改进
-
-```
-步骤：
-1. 每次纠正 Claude 时，判断是否值得加规则
-   问自己: "这个错误以后还会犯吗？"
-   如果是 → 立刻在 CLAUDE.md 追加
-
-2. 追加格式
-   打开: 项目根目录的 CLAUDE.md
-   追加:
-     - 描述错误行为 + 正确做法
-     - 一行即可，不需要长篇大论
-
-3. 示例
-   Claude 犯错: 用了 any 类型
-   追加到 CLAUDE.md: "- 禁止使用 any 类型，始终使用具体类型或 unknown"
-
-   Claude 犯错: 修改了不相关的文件
-   追加: "- 只修改与当前任务直接相关的文件，不要顺手重构"
-
-改进前 → 改进后：
-  Before: 反复口头纠正同一个错误
-  After:  纠正一次，写入规则，永不再犯
-
-衡量: CLAUDE.md 每周至少新增 2-3 条规则
-```
+**关键区别**：`best_practice` 字段必须引用 Step 3 搜索到的具体外部资料，不是泛泛的"社区推荐"。如果找不到外部资料支撑某条建议，降低该建议的优先级。

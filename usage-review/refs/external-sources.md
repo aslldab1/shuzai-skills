@@ -17,14 +17,22 @@
 - 虽然是 Codex 社区，但 AI coding agent 的通用经验可跨工具借鉴
 - 关注：context management, prompt engineering, workflow optimization
 
-## 搜索关键词
+## 搜索关键词（由 Step 2 动态生成）
 
-按优先级排列：
-1. `Claude Code workflow optimization` — 直接相关
-2. `AI coding assistant best practices 2026` — 通用最佳实践
-3. `context window management AI coding` — 上下文管理
-4. `AI agent tool usage patterns` — 工具使用模式
-5. `Claude Code CLAUDE.md tips` — 配置优化
+关键词不再固定，由 Step 2 基于历史感知动态生成。生成规则：
+
+1. **从关注方向到关键词**：Step 2 识别出的本周关注方向（如"hooks自动化"、"模型选择策略"），转换为英文搜索词
+2. **拼接搜索模板**：`Claude Code {关注方向}` 或 `AI coding {关注方向} best practices`
+3. **排除规则**：历史已覆盖 ≥ 2 次且指标已达标的方向，不生成对应关键词
+4. **保底机制**：如果动态生成不足 5 个，用 `Claude Code new features {当前年月}` 和 `AI coding agent workflow {当前年月}` 补齐，确保搜到时效性内容
+5. **数量**：每次固定生成 5 个关键词
+
+示例（假设历史已覆盖"降Bash比率"和"Agent并行"，本周数据显示压缩率偏高、无 hooks 使用）：
+1. `Claude Code context compaction optimization` — 压缩率偏高，历史未覆盖
+2. `Claude Code hooks automation workflow` — 无 hooks 使用，历史未覆盖
+3. `AI coding agent session management 2026` — 会话指标偏离，历史覆盖 1 次可换角度
+4. `Claude Code new features April 2026` — 保底：时效性
+5. `AI coding assistant cost optimization` — 成本趋势上升，历史未覆盖
 
 ## 输出要求
 
