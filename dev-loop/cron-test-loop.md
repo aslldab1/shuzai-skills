@@ -32,17 +32,82 @@ python3 /Users/lin/workspace/AI/git/shuzai-skills/cron-log-review/scripts/analyz
 - 操作顺序（comment → label → dispatch）
 - 硬约束遵守（-R 参数、tmux_dispatch.sh、busy_check）
 
-### Phase 3 — 问题处理
+### Phase 3 — 记录发现
 
 **所有发现的问题都写入 `dev-loop/backlog/`**，文件名格式：`{YYYYMMDD-HHmm}-{简述}.md`。
-内容包括：问题级别、问题表现、影响分析。
 
-**P0 问题额外执行：**
-1. 直接修改 `/Users/lin/workspace/AI/git/shuzai-skills/dev-loop/` 下的相关文件
-2. 创建分支、提交、创建 PR 并合并到 main
-3. 回填 backlog 文件，补充解决方案和 PR 编号
+内容格式：
 
-**P1/P2 问题**：仅写入 backlog，等待用户确认是否修复。
+```markdown
+# {级别}: {标题}
+
+## 问题级别
+{P0/P1/P2}（仅评估，不区分处理方式）
+
+## 观测现象
+{具体发生了什么}
+
+## 证据
+{具体数据：轮次编号、Issue 编号、日志摘录}
+
+## 影响
+{阻塞或劣化了什么}
+```
+
+**本阶段禁止：**
+- 修改 skill 文件、脚本或任何代码
+- 创建分支、提交或 PR
+- 直接修复问题
+
+### Phase 3.5 — Backlog 汇总 + 升级通知
+
+写完当轮 backlog 后，扫描 `dev-loop/backlog/` 下所有文件，检查是否触发升级条件。
+
+#### 升级触发条件
+
+**计数型**（捕捉未知失败模式）：
+
+| 模式 | 阈值 | 说明 |
+|------|------|------|
+| 同一 Issue 在连续 N 轮 backlog 中出现 | ≥ 3 轮 | 任务卡死 |
+| 同一 Issue 相同 label 且无新 comment/PR/commit | ≥ 3 轮 | 状态冻结 |
+
+**模式型**（捕捉已知失败模式，更快触发）：
+
+| 模式 | 阈值 | 说明 |
+|------|------|------|
+| `dispatch=failed` 连续出现 | ≥ 2 轮 | 派发通道故障 |
+| Worker 不可达（dispatch 后无响应） | ≥ 2 轮 | Worker 环境异常 |
+| Dispatch 成功但无 worker 产出 | ≥ 3 轮 | Worker 静默失败 |
+
+#### 触发升级时
+
+发送飞书告警通知：
+```bash
+openclaw message send --channel feishu --target "ou_c5bd4c88f78cbf338f76dbb5e8f64fed" -m "通知内容"
+```
+
+通知格式：
+```
+【测试循环告警 {datetime}】
+
+问题：{问题描述}
+持续：连续 {N} 轮
+影响：{影响分析}
+建议：{推荐操作}
+详情：{backlog 文件路径}
+```
+
+#### 未触发升级时
+
+- **不发送额外通知**，避免噪音
+- dev-loop 自身的每轮飞书进度通知照常发送
+
+#### 边界情况
+
+- 首轮无历史 backlog：不可能升级，仅记录
+- 同轮多个触发：合并为一条通知
+- 同一 Issue 上轮已通知：除非情况恶化（轮次增加），不重复通知
 
 ### Phase 4 — 更新计划
 更新 `docs/superpowers/plans/2026-04-01-coding-team-loop-test-optimization.md`，记录本轮结果。
