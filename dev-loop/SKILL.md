@@ -81,7 +81,9 @@ bash scripts/busy_check.sh {claude_pane}
 - 检测到 `【CODEX】【完成】` → label 改 `needs-review`（等 Claude review PR）
 - 检测到 `【CLAUDE】【完成】` → label 改 `verifying`（**由本 skill 执行方在 session 内直接执行 validator skill 完成验收**）
 - 子 Issue 全部关闭 → 父 Issue label 改 `verifying`（最终验收）
-- validator 验收通过 → label 改 `verified`，通知 HUMAN 确认关闭
+- validator 验收通过：
+  - **子 Issue**（body 含 `related to #N`）→ `gh issue close {N} -R aslldab1/Claw-Coach`（自动关闭，不通知 HUMAN）
+  - **根 Issue**（body 不含 `related to #N`）→ label 改 `verified`，飞书通知 HUMAN 确认关闭
 - validator 验收不通过 → label 改回 `pending`，附验收反馈，下轮重新派发
 
 ### 验收流程（verifying 状态专用）
@@ -101,9 +103,10 @@ gh issue comment {N} -R aslldab1/Claw-Coach --body-file - <<'EOF'
 EOF
 ```
 
-4. 根据结论更新 label（comment 写入成功后才执行）：
-   - **通过** → `gh issue edit {N} -R aslldab1/Claw-Coach --remove-label verifying --add-label verified`；飞书通知 HUMAN 确认关闭
-   - **不通过** → `gh issue edit {N} -R aslldab1/Claw-Coach --remove-label verifying --add-label pending`；附验收问题清单，下轮重新派发
+4. 根据结论更新状态（comment 写入成功后才执行）：
+   - **通过 — 子 Issue**（body 含 `related to #N`）→ `gh issue close {N} -R aslldab1/Claw-Coach`（直接关闭，无需 label 变更，不通知 HUMAN）
+   - **通过 — 根 Issue**（body 不含 `related to #N`）→ `gh issue edit {N} -R aslldab1/Claw-Coach --remove-label verifying --add-label verified`；飞书通知 HUMAN 确认关闭
+   - **不通过** → `gh issue edit {N} -R aslldab1/Claw-Coach --remove-label verifying --add-label pending`；validator 评论已包含问题清单，下轮重新派发给 Claude
 
 5. **工具不足时**（无法访问 browser、Playwright、Stitch MCP 等）：
    - 在 Issue 写入评论：`【VALIDATOR】工具不足，无法完成验收，缺失工具：{工具名}，请人工介入`
