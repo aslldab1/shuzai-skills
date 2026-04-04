@@ -20,11 +20,11 @@ allowed_tools: Bash, Read, Write, WebFetch, WebSearch, Agent
 ### Step 1：收集本地使用数据（OpenClaw）
 
 ```bash
-DATE=$(date +%Y%m%d)
+DATETIME=$(date +%Y%m%d_%H%M)
 SKILL_DIR=~/workspace/AI/git/shuzai-skills/usage-review
 python3 $SKILL_DIR/scripts/collect_usage_data.py \
   --days 7 \
-  --output $SKILL_DIR/data/usage_data_${DATE}.json
+  --output $SKILL_DIR/data/usage_data_${DATETIME}.json
 ```
 
 产出：`usage_data.json`，包含以下维度：
@@ -80,9 +80,9 @@ python3 $SKILL_DIR/scripts/collect_usage_data.py \
 - 已覆盖且指标达标的方向 → 在 strengths 中作为「已改善」提及，不再推荐
 - 已覆盖但指标恶化的方向 → 从新角度推荐（不同的切入点和操作建议）
 - 未覆盖的方向 → 优先推荐
-- 每条建议必须包含具体的操作手册（步骤、示例、衡量标准），由 Claude 基于外部资料和使用数据动态生成，不使用预设模板
+- 每条建议必须包含结构化 `playbook` 字段（含 `steps`、`before_after`、`measure`），由 Claude 基于外部资料和使用数据动态生成，不使用预设模板。`playbook` 是报告渲染 Playbook: step-by-step 折叠面板的数据源，缺失则报告无法展示操作手册
 
-产出：`insights_<DATE>.json`，写入 `usage-review/data/insights_<DATE>.json`，格式：
+产出：`insights_<DATETIME>.json`，写入 `usage-review/data/insights_<DATETIME>.json`（DATETIME 格式 YYYYMMDD_HHmm，与 Step 1 的变量一致），格式：
 
 ```json
 {
@@ -95,7 +95,22 @@ python3 $SKILL_DIR/scripts/collect_usage_data.py \
       "priority": "high|medium|low",
       "title": "建议标题",
       "description": "具体说明",
-      "action": "可执行的改进步骤"
+      "your_value": "用户当前指标值（如 Bash 55.8%）",
+      "best_practice": "最佳实践目标值（如 <40%）",
+      "playbook": {
+        "steps": [
+          {
+            "do": "步骤描述",
+            "example": "示例命令或代码（可选）",
+            "expect": "预期结果（可选）"
+          }
+        ],
+        "before_after": {
+          "before": "改进前的典型做法",
+          "after": "改进后的推荐做法"
+        },
+        "measure": "衡量标准：如何确认改进生效"
+      }
     }
   ],
   "external_references": [
@@ -114,34 +129,20 @@ python3 $SKILL_DIR/scripts/collect_usage_data.py \
 1. 生成 HTML 报告：
 
 ```bash
-DATE=$(date +%Y%m%d)
+DATETIME=$(date +%Y%m%d_%H%M)
 SKILL_DIR=~/workspace/AI/git/shuzai-skills/usage-review
 python3 $SKILL_DIR/scripts/generate_report.py \
-  --data $SKILL_DIR/data/usage_data_${DATE}.json \
-  --insights $SKILL_DIR/data/insights_${DATE}.json \
-  --output $SKILL_DIR/data/report_${DATE}.html
+  --data $SKILL_DIR/data/usage_data_${DATETIME}.json \
+  --insights $SKILL_DIR/data/insights_${DATETIME}.json \
+  --output $SKILL_DIR/data/report_${DATETIME}.html
 ```
 
-2. 发送飞书通知：
+2. 发送飞书通知（链接指向 index.html 并通过 hash 定位到当前报告）：
 
 ```bash
-curl -X POST "$FEISHU_WEBHOOK_URL" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "msg_type": "interactive",
-    "card": {
-      "header": {
-        "title": {"tag": "plain_text", "content": "Claude Code 周报"},
-        "template": "purple"
-      },
-      "elements": [
-        {
-          "tag": "div",
-          "text": {"tag": "lark_md", "content": "**报告期间**: 过去 7 天\n**查看报告**: [打开 HTML 报告](file://报告路径)"}
-        }
-      ]
-    }
-  }'
+SKILL_DIR=~/workspace/AI/git/shuzai-skills/usage-review
+openclaw message send --channel feishu --target "ou_c5bd4c88f78cbf338f76dbb5e8f64fed" \
+  -m "【Claude Code 周报】报告已生成，查看: file:///${SKILL_DIR}/data/index.html#report_${DATETIME}.html"
 ```
 
 ## 数据隐私
