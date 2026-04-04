@@ -108,7 +108,18 @@ EOF
    - **通过 — 根 Issue**（body 不含 `related to #N`）→ `gh issue edit {N} -R aslldab1/Claw-Coach --remove-label verifying --add-label verified`；飞书通知 HUMAN 确认关闭
    - **不通过** → `gh issue edit {N} -R aslldab1/Claw-Coach --remove-label verifying --add-label pending`；validator 评论已包含问题清单，下轮重新派发给 Claude
 
-5. **工具不足时**（无法访问 browser、Playwright、Stitch MCP 等）：
+5. **browser 工具失败时**（调用超时、gateway 崩溃、snapshot/screenshot 返回错误）：
+   - 首先尝试自动重启 browser gateway：
+     ```bash
+     openclaw browser stop && sleep 3 && openclaw browser start
+     ```
+   - 重启后等待 3 秒，重试当前验收步骤一次
+   - 若重试仍失败，则：
+     - label 改回 `in-progress`：`gh issue edit {N} -R aslldab1/Claw-Coach --remove-label verifying --add-label in-progress`
+     - 在 Issue 写入评论：`【VALIDATOR】browser gateway 已重启但仍失败，已重置状态为 in-progress，下轮重新执行验收`
+     - 发送飞书告警：`openclaw message send --channel feishu --account stage2 --target "ou_92ebef681150322a26c3af3d1d79072e" -m "【验收告警】{Issue} browser gateway 重启后仍失败，已重置 label"`
+
+6. **其他工具不足时**（无法访问 Playwright、Stitch MCP 等）：
    - 在 Issue 写入评论：`【VALIDATOR】工具不足，无法完成验收，缺失工具：{工具名}，请人工介入`
    - 同时发送飞书告警：`openclaw message send --channel feishu --account stage2 --target "ou_92ebef681150322a26c3af3d1d79072e" -m "【验收告警】{Issue} 验收工具不足：{工具名}"`
 
