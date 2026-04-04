@@ -26,6 +26,101 @@ def fmt(n: int) -> str:
     return f"{n:,}" if n >= 1000 else str(n)
 
 
+def _parse_report_label(filename: str) -> str:
+    """Extract display label from report filename like report_20260402_0943.html."""
+    parts = filename.replace("report_", "").replace(".html", "")
+    if "_" in parts and len(parts) >= 13:
+        date_str, time_str = parts[:8], parts[9:13]
+        return f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]} {time_str[:2]}:{time_str[2:4]}"
+    date_str = parts[:8]
+    return f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
+
+
+def generate_index_html(output_path: str) -> None:
+    """Scan data/ for report_*.html files, generate index.html with nav + iframe."""
+    data_dir = Path(output_path).parent
+    reports = []
+    for f in sorted(data_dir.glob("report_*.html"), reverse=True):
+        reports.append({"filename": f.name, "label": _parse_report_label(f.name)})
+
+    # Include current report if not yet on disk (just written, glob may have it already)
+    current_name = Path(output_path).name
+    if not any(r["filename"] == current_name for r in reports):
+        reports.insert(0, {"filename": current_name, "label": _parse_report_label(current_name)})
+
+    nav_items = ""
+    for r in reports:
+        nav_items += (
+            f'      <a class="nav-item" href="#{r["filename"]}" '
+            f'data-file="{r["filename"]}">{r["label"]}</a>\n'
+        )
+
+    index_html = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code Weekly Reports</title>
+<style>
+:root {{
+  --bg:#0f1117; --s1:#1a1d27; --s2:#242836; --bd:#2d3148;
+  --tx:#e4e4e7; --tm:#9ca3af; --ac:#6366f1; --al:#818cf8; --pu:#a855f7;
+}}
+* {{ margin:0; padding:0; box-sizing:border-box }}
+body {{ display:flex; height:100vh; overflow:hidden; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--tx) }}
+nav {{ width:220px; min-width:220px; background:var(--s1); border-right:1px solid var(--bd); display:flex; flex-direction:column; height:100vh }}
+.nav-hdr {{ padding:1.2rem 1rem .8rem; border-bottom:1px solid var(--bd) }}
+.nav-hdr h1 {{ font-size:1rem; background:linear-gradient(135deg,var(--al),var(--pu)); -webkit-background-clip:text; -webkit-text-fill-color:transparent }}
+.nav-hdr p {{ font-size:.72rem; color:var(--tm); margin-top:.2rem }}
+.nav-list {{ flex:1; overflow-y:auto; padding:.5rem 0 }}
+.nav-item {{ display:block; padding:.6rem 1rem; color:var(--tm); text-decoration:none; font-size:.85rem; border-left:3px solid transparent }}
+.nav-item:hover {{ background:var(--s2); color:var(--tx) }}
+.nav-item.active {{ color:var(--al); font-weight:600; background:rgba(99,102,241,.1); border-left-color:var(--al) }}
+iframe {{ flex:1; border:none; height:100vh }}
+</style>
+</head>
+<body>
+  <nav>
+    <div class="nav-hdr">
+      <h1>Weekly Reports</h1>
+      <p>{len(reports)} reports</p>
+    </div>
+    <div class="nav-list">
+{nav_items}    </div>
+  </nav>
+  <iframe id="viewer" src=""></iframe>
+  <script>
+    const items = document.querySelectorAll('.nav-item');
+    const viewer = document.getElementById('viewer');
+
+    function load(filename) {{
+      viewer.src = filename;
+      items.forEach(function(el) {{
+        el.classList.toggle('active', el.dataset.file === filename);
+      }});
+    }}
+
+    items.forEach(function(el) {{
+      el.addEventListener('click', function(e) {{
+        e.preventDefault();
+        var f = el.dataset.file;
+        window.location.hash = f;
+        load(f);
+      }});
+    }});
+
+    // Load from hash or default to first report
+    var hash = window.location.hash.slice(1);
+    var target = hash || (items.length > 0 ? items[0].dataset.file : '');
+    if (target) load(target);
+  </script>
+</body>
+</html>"""
+
+    index_path = data_dir / "index.html"
+    index_path.write_text(index_html, encoding="utf-8")
+
+
 def generate_html(
     data: Dict[str, Any],
     insights: Dict[str, Any],
@@ -484,13 +579,18 @@ def main() -> None:
     data = load_json(args.data)
     insights = load_json(args.insights)
 
+    output_path = args.output
+
     html = generate_html(data, insights)
 
-    Path(args.output).parent.mkdir(parents=True, exist_ok=True)
-    with open(args.output, "w", encoding="utf-8") as f:
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(html)
 
-    print(f"报告已生成: {args.output}", file=sys.stderr)
+    # Regenerate index.html with current report list
+    generate_index_html(output_path)
+
+    print(f"报告已生成: {output_path}", file=sys.stderr)
 
 
 if __name__ == "__main__":
