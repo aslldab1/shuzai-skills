@@ -57,10 +57,7 @@ bash scripts/busy_check.sh {claude_pane}
 
 **用你的判断力决定最该做什么。** 以下是优先级指引（不是硬规则）：
 
-- **有 PR 待 review** → 先判断是否需要等 review：
-  - `mergeStateStatus=CLEAN`（无阻塞）且 `reviewDecision=null`（无强制 review 要求）→ **直接 merge**，无需派发 review
-  - `reviewDecision=REVIEW_REQUIRED` 或 `mergeStateStatus` 有阻塞 → 派发 Claude review 请求，review 通过后 merge
-  - PR 作者与执行 review 的 worker 账号相同（同一 GitHub 账号）→ 跳过 review，直接 merge（self-approve 被 GitHub 阻止）
+- **有 PR 待 review**（Issue label = `needs-review`）→ 派发 Claude 做代码质量审查（**不是** `gh pr review --approve`）；检测到 `【CLAUDE】【完成】` 后由 skill 自己执行 merge
 - **有任务待验收** → 派发验收请求
 - **有 PR 被要求修改** → 派发修复请求
 - **有任务卡住**（in-progress 但长时间无进展）→ 派发进度确认
@@ -82,7 +79,8 @@ bash scripts/busy_check.sh {claude_pane}
 
 **完成信号处理：**
 - 检测到 `【CODEX】【完成】` → label 改 `needs-review`（等 Claude review PR）
-- 检测到 `【CLAUDE】【完成】` → label 改 `verifying`（**由本 skill 执行方在 session 内直接执行 validator skill 完成验收**）
+- 检测到 `【CLAUDE】【完成】`（Issue 当前 label = `needs-review`，即 review 任务完成）→ skill 执行 `gh pr merge {PR号} -R aslldab1/Claw-Coach --merge` → label 改 `verifying`
+- 检测到 `【CLAUDE】【完成】`（Issue 当前 label = `in-progress`，即开发任务完成）→ label 改 `verifying`（**由本 skill 执行方在 session 内直接执行 validator skill 完成验收**）
 - 子 Issue 全部关闭 → 父 Issue label 改 `verifying`（最终验收）
 - validator 验收通过：
   - **子 Issue**（body 含 `related to #N`）→ `gh issue close {N} -R aslldab1/Claw-Coach`（自动关闭，不通知 HUMAN）
@@ -191,21 +189,17 @@ openclaw message send --channel feishu --account stage2 --target "ou_92ebef68115
 Issue #65 是 `pending + owner/claude`，Claude 空闲。
 → 写 OPENCLAW 评论 → label 改 in-progress → tmux 派发任务消息
 
-**场景 2：Codex 完成 → review**
+**场景 2：Codex 完成 → Claude review**
 Issue #65 评论出现 `【CODEX】【完成】PR #20 related to #65`。
-→ label 改 needs-review → 下轮检查 PR 状态
+→ label 改 needs-review → 下轮派发 Claude 做代码质量审查（读 PR diff，写审查结论评论 + `【CLAUDE】【完成】`）
 
-**场景 2a：PR 无强制 review 要求（无 branch protection）**
-PR #20 `mergeStateStatus=CLEAN`，`reviewDecision=null`。
-→ 直接 `gh pr merge 20 -R aslldab1/Claw-Coach --merge`，label 改 verifying
+**场景 2b：Claude review 完成 → merge → 待验收**
+Issue #65（`needs-review`）评论出现 `【CLAUDE】【完成】`。
+→ skill 执行 `gh pr merge 20 -R aslldab1/Claw-Coach --merge` → label 改 verifying → 下轮 skill 执行方直接运行 validator skill
 
-**场景 2b：PR 需要 review 但作者与 worker 同账号**
-PR #20 作者为 `aslldab1`，Claude worker 也是 `aslldab1`（self-approve 被 GitHub 阻止）。
-→ 跳过 review，直接 merge（与场景 2a 相同逻辑）
-
-**场景 2b：Claude 完成 → 待验收**
-Issue #65 评论出现 `【CLAUDE】【完成】PR #18 related to #65`。
-→ label 改 verifying → 下轮 skill 执行方在 session 内直接读取 validator skill 执行验收（见验收流程节）
+**场景 2c：Claude 开发任务完成 → 待验收（无 PR merge）**
+Issue #65（`in-progress`）评论出现 `【CLAUDE】【完成】`。
+→ label 改 verifying → 下轮 skill 执行方直接运行 validator skill
 
 **场景 3：Epic 拆解**
 Issue #64 是大需求，无 owner label。
