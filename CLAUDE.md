@@ -18,9 +18,11 @@ shuzai-skills/
 ├── validator/              # AI 产出物验收 skill（视觉+用户旅程+交互）
 │   ├── SKILL.md
 │   └── refs/
-└── validator-eval/         # Validator 验收质量评测 skill
-    ├── SKILL.md
-    └── scripts/analyze_runs.py
+├── validator-eval/         # Validator 验收质量评测 skill
+│   ├── SKILL.md
+│   └── scripts/analyze_runs.py
+└── codex-wham-oauth/       # Codex WHAM OAuth 集成 skill（cron 脚本调用 GPT）
+    └── SKILL.md
 ```
 
 ## 安装规则
@@ -47,6 +49,7 @@ ls -la ~/.claude/skills/
 | cron-log-review | `/cron-log-review` | 分析 OpenClaw cron 定时任务的执行日志，重点检查状态推进错误和流程执行问题 |
 | validator | 由 coding-team-loop 派发 | AI 产出物验收：视觉质量分析、用户旅程验证、交互测试、设计稿对比 |
 | validator-eval | `/validator-eval` | 评测 validator 验收质量：三阶段执行审计、截图分析率、用户旅程覆盖、视觉检测能力 |
+| codex-wham-oauth | `/codex-wham-oauth` | Codex CLI OAuth token 读取 + WHAM API 调用，适合 cron/后台脚本替代 Claude OAuth |
 
 ## 飞书通知规则
 
